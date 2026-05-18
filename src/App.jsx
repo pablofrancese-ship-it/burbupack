@@ -75,7 +75,7 @@ function calcular(inp, adm) {
   const desperdicioCm = Math.round(anchoMaquina - fajas * anchoReq);
   const pctDesp = Math.round((desperdicioCm / anchoMaquina) * 100);
   const cantMillares = parseFloat(millares) || 0;
-  const cantUnidades = cantMillares * 1000;
+  const cantUnidades = Math.round(cantMillares * 1000);
   const PESO_M2 = { Standard: 0.0777, Microburbuja: 0.092, Burbujón: 0.092 };
   const factorTipo  = tipo === "lamina" ? 0.5 : 1;
   const factorCapas = capas === "triple" ? 1.5 : 1;
@@ -333,9 +333,11 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               {["bolsa","lamina"].map(t=>(<button key={t} onClick={()=>setI("tipo",t)} style={togBtn(inp.tipo===t)}>{t==="bolsa"?"Bolsa":"Lámina"}</button>))}
             </div>
             <label style={lS}>Tipo de burbuja</label>
-            <select value={inp.burbuja} onChange={e=>setI("burbuja",e.target.value)} style={{ ...iS, marginBottom:10 }}>
-              {BURBUJAS.map(b=><option key={b.value} value={b.value}>{b.label}</option>)}
-            </select>
+            <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+              {BURBUJAS.map(b=>(
+                <button key={b.value} onClick={()=>setI("burbuja",b.value)} style={{ ...togBtn(inp.burbuja===b.value), flex:1, fontSize:12, padding:"8px 4px" }}>{b.label}</button>
+              ))}
+            </div>
             <label style={lS}>Capas</label>
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
               {["simple","triple"].map(c=>(<button key={c} onClick={()=>setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>))}
@@ -384,7 +386,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 </div>
               </div>
               <div style={{ background:`linear-gradient(135deg,${B},${BD})`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {fmt(res.cantMillares)} mil ({fmt(res.cantUnidades)} u.)</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {parseFloat(res.cantMillares)} mil ({fmt(res.cantUnidades)} u.)</p>
                 <p style={{ fontSize:26, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:15, fontWeight:400 }}>+ IVA</span></p>
                 <p style={{ fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:12, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.55)", margin:"6px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
