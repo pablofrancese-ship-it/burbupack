@@ -21,7 +21,11 @@ const RANGOS = [
   { min: 7,  max: 10,       label: "7 a 10 mil" },
   { min: 10, max: Infinity, label: "Más de 10 mil" },
 ];
-const BURBUJAS = ["Standard", "Microburbuja", "Burbujón"];
+const BURBUJAS = [
+  { value: "Standard",     label: "Standard" },
+  { value: "Microburbuja", label: "Microburbuja" },
+  { value: "Burbujón",     label: "Burbujón" },
+];
 const METROS_REP = 1000, METROS_INV = 500;
 const B = "#0099d8", BD = "#005f8a", BG = "#e6f6fd", BDK = "#003d5c";
 
@@ -330,7 +334,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
             </div>
             <label style={lS}>Tipo de burbuja</label>
             <select value={inp.burbuja} onChange={e=>setI("burbuja",e.target.value)} style={{ ...iS, marginBottom:10 }}>
-              {BURBUJAS.map(b=><option key={b}>{b}</option>)}
+              {BURBUJAS.map(b=><option key={b.value} value={b.value}>{b.label}</option>)}
             </select>
             <label style={lS}>Capas</label>
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
@@ -380,7 +384,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 </div>
               </div>
               <div style={{ background:`linear-gradient(135deg,${B},${BD})`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {fmtDec(res.cantMillares,1)} mil ({fmt(res.cantUnidades)} u.)</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {fmt(res.cantMillares)} mil ({fmt(res.cantUnidades)} u.)</p>
                 <p style={{ fontSize:26, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:15, fontWeight:400 }}>+ IVA</span></p>
                 <p style={{ fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:12, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.55)", margin:"6px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
