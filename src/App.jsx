@@ -43,6 +43,8 @@ const INIT = {
   precioPE: 1.20,
   costoRolloRepegable: 0,
   costoRolloInviolable: 0,
+  costoCalibacion: 100,
+  minimoUSD: 300,
   rentabilidades: [6.0, 4.0, 3.0, 2.5, 2.0],
   tipoCambio: 1405,
   cotizaciones: [],
@@ -90,9 +92,7 @@ function calcular(inp, adm) {
   if (cintaRep) extras += costoCmRep * anchoNum;
   if (cintaInv) extras += costoCmInv * anchoNum;
   const costoPorUnidad  = costoMaterial + extras;
-  const idx             = getRangoIdx(cantMillares);
-  const rentaMult       = 1 + (adm.rentabilidades[idx] || 2);
-  const precioPorUnidad = costoPorUnidad * rentaMult;
+
   const precioTotal     = precioPorUnidad * cantUnidades;
   const costoTotal      = costoPorUnidad  * cantUnidades;
   const utilidad        = precioTotal - costoTotal;
@@ -106,6 +106,7 @@ function calcular(inp, adm) {
     costoTotal,   costoTotalUSD:   costoTotal  / adm.tipoCambio,
     utilidad,     utilidadUSD:     utilidad    / adm.tipoCambio,
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
+    aplicaCalib, costoCalibUSD: adm.costoCalibacion || 100,
     rangoLabel: RANGOS[idx].label,
     rentaPct:   Math.round(adm.rentabilidades[idx] * 100),
     cantUnidades, cantMillares, error: false,
@@ -386,10 +387,11 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 </div>
               </div>
               <div style={{ background:`linear-gradient(135deg,${B},${BD})`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {parseFloat(res.cantMillares)} mil ({fmt(res.cantUnidades)} u.)</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {res.cantMillares} mil ({res.cantUnidades.toLocaleString("es-AR")} u.)</p>
                 <p style={{ fontSize:26, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:15, fontWeight:400 }}>+ IVA</span></p>
                 <p style={{ fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:12, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.55)", margin:"6px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
+
               </div>
               {role==="admin"&&(
                 <div style={{ background:"#1a1a2e", borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
@@ -485,7 +487,25 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               </div>
             </div>
             <div style={crd}>
-              <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>RENTABILIDAD POR RANGO (millares)</p>
+              <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>MÍNIMO DE FACTURACIÓN</p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                <div>
+                  <label style={lS}>Mínimo pedido (USD)</label>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span>
+                    <input type="number" step="10" value={as.minimoUSD||300} onChange={e=>setAs(p=>({...p,minimoUSD:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/>
+                  </div>
+                </div>
+                <div>
+                  <label style={lS}>Costo calibración (USD)</label>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span>
+                    <input type="number" step="10" value={as.costoCalibacion||100} onChange={e=>setAs(p=>({...p,costoCalibacion:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/>
+                  </div>
+                </div>
+              </div>
+              <p style={{ fontSize:11, color:BD, margin:"8px 0 0" }}>Si el total del pedido es menor al mínimo, se prorratea el costo de calibración entre las unidades.</p>
+            </div>
               {RANGOS.map((r,i)=>(
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                   <span style={{ fontSize:13, color:BD, flex:1 }}>{r.label}</span>
