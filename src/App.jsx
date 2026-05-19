@@ -78,7 +78,8 @@ function calcular(inp, adm) {
   const pctDesp = Math.round((desperdicioCm / anchoMaquina) * 100);
 
   const cantMillares = parseFloat(millares) || 0;
-  const cantUnidades = Math.round(cantMillares * 1000);
+  const cantUnidades = cantMillares * 1000;
+  const cantUnidadesInt = Math.round(cantUnidades);
 
   const PESO_M2 = { Standard:0.0777, Microburbuja:0.092, Burbujón:0.092 };
   const factorTipo  = tipo === "lamina" ? 0.5 : 1;
@@ -100,8 +101,8 @@ function calcular(inp, adm) {
   const precioBase  = costoPorUnidad * rentaMult;
 
   // Calibración: se suma DESPUÉS de rentabilidad si total < mínimo USD
-  const totalBaseUSD = cantUnidades > 0 ? (precioBase * cantUnidades) / adm.tipoCambio : 0;
-  const aplicaCalib  = cantUnidades > 0 && totalBaseUSD < (adm.minimoUSD || 300);
+  const totalBaseUSD = cantUnidadesInt > 0 ? (precioBase * cantUnidadesInt) / adm.tipoCambio : 0;
+  const aplicaCalib  = cantUnidadesInt > 0 && totalBaseUSD < (adm.minimoUSD || 300);
   const calibPorUnidad = aplicaCalib ? ((adm.costoCalibacion || 100) * adm.tipoCambio) / cantUnidades : 0;
 
   const precioPorUnidad = precioBase + calibPorUnidad;
@@ -121,7 +122,7 @@ function calcular(inp, adm) {
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
     rangoLabel: RANGOS[rangoIdx].label,
     rentaPct:   Math.round(adm.rentabilidades[rangoIdx] * 100),
-    cantUnidades, cantMillares, error:false,
+    cantUnidades: cantUnidadesInt, cantMillares, error:false,
   };
 }
 
