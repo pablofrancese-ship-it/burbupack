@@ -105,13 +105,13 @@ function calcular(inp, adm) {
   const totalBaseUSD = cantUnidadesInt > 0 ? (precioBase * cantUnidadesInt) / adm.tipoCambio : 0;
   const aplicaCalib  = cantUnidadesInt > 0 && totalBaseUSD < (adm.minimoUSD || 300);
   const calibPorUnidad = aplicaCalib ? ((adm.costoCalibacion || 100) * adm.tipoCambio) / cantUnidades : 0;
-  
-  const precioPorUnidad = precioBase + calibPorUnidad;
-  const precioTotal     = precioPorUnidad * cantUnidadesInt;
-  const costoTotal      = costoPorUnidad  * cantUnidadesInt;
-  const utilidad        = precioTotal - costoTotal;
-  return {
 
+  const precioPorUnidad = precioBase + calibPorUnidad;
+  const precioTotal     = precioPorUnidad * cantUnidades;
+  const costoTotal      = costoPorUnidad  * cantUnidades;
+  const utilidad        = precioTotal - costoTotal;
+
+  return {
     anchoReq, anchoMaquina, fajas, desperdicioCm, pctDesp,
     costoPorUnidad, precioPorUnidad,
     precioPorUnidadUSD:  precioPorUnidad / adm.tipoCambio,
@@ -174,9 +174,9 @@ export default function App() {
   async function fetchDolar() {
     setDolarLoading(true);
     try {
-      const r = await fetch("https://api.bluelytics.com.ar/v2/latest");
+      const r = await fetch("https://dolarapi.com/v1/dolares/oficial");
       const d = await r.json();
-      if (d?.oficial?.value_sell) setAs(p => ({ ...p, tipoCambio:d.oficial.value_sell }));
+      if (d?.venta) setAs(p => ({ ...p, tipoCambio: d.venta }));
     } catch {}
     setDolarLoading(false);
   }
