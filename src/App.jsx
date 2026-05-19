@@ -1,3 +1,4 @@
+// BurbuPack v6 - fix millares
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -110,7 +111,7 @@ function calcular(inp, adm) {
   const costoTotal      = costoPorUnidad  * cantUnidadesInt;
   const utilidad        = precioTotal - costoTotal;
   return {
-    
+
     anchoReq, anchoMaquina, fajas, desperdicioCm, pctDesp,
     costoPorUnidad, precioPorUnidad,
     precioPorUnidadUSD:  precioPorUnidad / adm.tipoCambio,
