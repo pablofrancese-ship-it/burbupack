@@ -104,13 +104,13 @@ function calcular(inp, adm) {
   const totalBaseUSD = cantUnidadesInt > 0 ? (precioBase * cantUnidadesInt) / adm.tipoCambio : 0;
   const aplicaCalib  = cantUnidadesInt > 0 && totalBaseUSD < (adm.minimoUSD || 300);
   const calibPorUnidad = aplicaCalib ? ((adm.costoCalibacion || 100) * adm.tipoCambio) / cantUnidades : 0;
-
+  
   const precioPorUnidad = precioBase + calibPorUnidad;
-  const precioTotal     = precioPorUnidad * cantUnidades;
-  const costoTotal      = costoPorUnidad  * cantUnidades;
+  const precioTotal     = precioPorUnidad * cantUnidadesInt;
+  const costoTotal      = costoPorUnidad  * cantUnidadesInt;
   const utilidad        = precioTotal - costoTotal;
-
   return {
+    
     anchoReq, anchoMaquina, fajas, desperdicioCm, pctDesp,
     costoPorUnidad, precioPorUnidad,
     precioPorUnidadUSD:  precioPorUnidad / adm.tipoCambio,
