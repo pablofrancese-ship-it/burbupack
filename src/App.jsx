@@ -89,7 +89,15 @@ function calcular(inp, adm) {
   const factorColor = color ? 1.25 : 1;
   const costoM2ars  = (PESO_M2[burbuja]||0.0777) * adm.precioPE * adm.tipoCambio * factorTipo * factorCapas * factorColor;
   const m2Unidad    = (anchoNum / 100) * (largoNum / 100);
+
+  // Costo material directo de la bolsa/lámina
   const costoMaterial = costoM2ars * m2Unidad;
+
+  // Costo desperdicio prorrateado solo si desperdicioCm <= 20
+  const m2Desperdicio = desperdicioCm <= 20 && cantUnidadesInt > 0
+    ? ((desperdicioCm / 100) * (largoNum / 100)) / fajas  // m² de desperdicio por unidad
+    : 0;
+  const costoDesperdicio = costoM2ars * m2Desperdicio;
 
   const costoCmRep = adm.costoRolloRepegable  > 0 ? ((adm.costoRolloRepegable  * adm.tipoCambio) / (METROS_REP * 100)) * 3 : 0;
   const costoCmInv = adm.costoRolloInviolable > 0 ? ((adm.costoRolloInviolable * adm.tipoCambio) / (METROS_INV * 100)) * 3 : 0;
@@ -97,7 +105,7 @@ function calcular(inp, adm) {
   if (cintaRep) extras += costoCmRep * anchoNum;
   if (cintaInv) extras += costoCmInv * anchoNum;
 
-  const costoPorUnidad = costoMaterial + extras;
+  const costoPorUnidad = costoMaterial + costoDesperdicio + extras;
   const rangoIdx    = getRangoIdx(cantMillares);
   const rentaMult   = 1 + (adm.rentabilidades[rangoIdx] || 2);
   const precioBase  = costoPorUnidad * rentaMult;
@@ -433,21 +441,21 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por unidad</p>
-                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorUnidadUSD,2)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmtDec(res.precioPorUnidad,2)}</p>
+                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorUnidadUSD,3)}</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorUnidad)}</p>
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
-                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmt(res.precioPorMillarUSD)}.-</p>
+                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorMillarUSD,1)}.-</p>
                   <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorMillar)}.-</p>
                 </div>
               </div>
 
               <div style={{ background:`linear-gradient(135deg,${B},${BD})`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {res.cantMillares} mil ({res.cantUnidades.toLocaleString("es-AR")} u.)</p>
-                <p style={{ fontSize:26, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:15, fontWeight:400 }}>+ IVA</span></p>
-                <p style={{ fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:12, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.55)", margin:"6px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
+                <p style={{ fontSize:14, color:"rgba(255,255,255,0.75)", margin:"0 0 6px", fontWeight:600 }}>Total del pedido — {res.cantMillares} mil ({res.cantUnidades.toLocaleString("es-AR")} u.)</p>
+                <p style={{ fontSize:34, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:19, fontWeight:400 }}>+ IVA</span></p>
+                <p style={{ fontSize:23, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:15, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
+                <p style={{ fontSize:14, color:"rgba(255,255,255,0.55)", margin:"8px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
               </div>
 
               {role === "admin" && (
