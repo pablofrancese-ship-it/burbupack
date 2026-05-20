@@ -139,46 +139,64 @@ const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ hei
 const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:32, display:"block" }}/>;
 
 const BubbleHeader = ({ children }) => (
-  <div style={{ position:"relative", overflow:"hidden", borderRadius:"0 0 24px 24px", marginBottom:14 }}>
-    <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <radialGradient id="bg" cx="50%" cy="50%" r="70%">
-          <stop offset="0%" stopColor="#1a3a4a"/>
-          <stop offset="100%" stopColor="#060f14"/>
-        </radialGradient>
-        <radialGradient id="b1" cx="35%" cy="30%" r="65%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.18)"/>
-          <stop offset="60%" stopColor="rgba(180,220,255,0.06)"/>
-          <stop offset="100%" stopColor="rgba(100,180,255,0.0)"/>
-        </radialGradient>
-        <radialGradient id="b2" cx="30%" cy="25%" r="65%">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.22)"/>
-          <stop offset="55%" stopColor="rgba(180,220,255,0.07)"/>
-          <stop offset="100%" stopColor="rgba(100,180,255,0.0)"/>
-        </radialGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#bg)"/>
-      {/* Burbujas grandes */}
-      {[
-        {cx:12,cy:28,r:22},{cx:38,cy:15,r:28},{cx:65,cy:32,r:20},{cx:85,cy:12,r:25},
-        {cx:55,cy:58,r:18},{cx:25,cy:62,r:24},{cx:78,cy:55,r:22},{cx:92,cy:38,r:16},
-        {cx:45,cy:82,r:20},{cx:10,cy:85,r:18},{cx:70,cy:80,r:26},{cx:95,cy:72,r:14},
-      ].map((b,i) => (
-        <g key={i}>
-          <circle cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b1)" stroke="rgba(150,210,255,0.25)" strokeWidth="0.8"/>
-          <ellipse cx={`${b.cx-b.r*0.25}%`} cy={`${b.cy-b.r*0.3}%`} rx={`${b.r*0.45}`} ry={`${b.r*0.22}`} fill="rgba(255,255,255,0.13)" transform={`rotate(-30,${b.cx},${b.cy})`}/>
-        </g>
-      ))}
-      {/* Burbujas pequeñas */}
-      {[
-        {cx:20,cy:45,r:10},{cx:50,cy:10,r:8},{cx:75,cy:22,r:11},{cx:32,cy:88,r:9},
-        {cx:88,cy:85,r:10},{cx:60,cy:68,r:7},{cx:5,cy:55,r:8},
-      ].map((b,i) => (
-        <circle key={i+20} cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b2)" stroke="rgba(150,210,255,0.2)" strokeWidth="0.6"/>
-      ))}
-    </svg>
-    <div style={{ position:"relative", zIndex:1 }}>
-      {children}
+  <div style={{ marginBottom:14 }}>
+    {/* Logos fuera del fondo de burbujas */}
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px 6px" }}>
+      <BurbuLogo/>
+      <EmpackLogo/>
+    </div>
+    {/* Fondo burbujas centrado con título */}
+    <div style={{ position:"relative", overflow:"hidden", borderRadius:16, margin:"0 32px", minHeight:160 }}>
+      <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+            <stop offset="0%" stopColor="#1a3a4a"/>
+            <stop offset="100%" stopColor="#060f14"/>
+          </radialGradient>
+          <radialGradient id="b1" cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.18)"/>
+            <stop offset="60%" stopColor="rgba(180,220,255,0.06)"/>
+            <stop offset="100%" stopColor="rgba(100,180,255,0.0)"/>
+          </radialGradient>
+          <radialGradient id="b2" cx="30%" cy="25%" r="65%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.22)"/>
+            <stop offset="55%" stopColor="rgba(180,220,255,0.07)"/>
+            <stop offset="100%" stopColor="rgba(100,180,255,0.0)"/>
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg)"/>
+        {/* Burbujas grandes — doble cantidad */}
+        {[
+          {cx:6,cy:20,r:22},{cx:18,cy:50,r:28},{cx:30,cy:15,r:20},{cx:42,cy:65,r:25},
+          {cx:55,cy:25,r:22},{cx:65,cy:55,r:18},{cx:75,cy:18,r:26},{cx:85,cy:45,r:20},
+          {cx:93,cy:22,r:18},{cx:10,cy:78,r:24},{cx:25,cy:88,r:20},{cx:40,cy:80,r:16},
+          {cx:52,cy:90,r:22},{cx:68,cy:82,r:18},{cx:80,cy:75,r:24},{cx:92,cy:70,r:16},
+          {cx:35,cy:40,r:14},{cx:60,cy:42,r:16},{cx:48,cy:10,r:18},{cx:72,cy:38,r:14},
+          {cx:15,cy:35,r:12},{cx:88,cy:90,r:20},{cx:5,cy:92,r:14},{cx:97,cy:50,r:12},
+        ].map((b,i) => (
+          <g key={i}>
+            <circle cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b1)" stroke="rgba(150,210,255,0.25)" strokeWidth="0.8"/>
+            <ellipse cx={`${b.cx-b.r*0.25}%`} cy={`${b.cy-b.r*0.3}%`} rx={`${b.r*0.45}`} ry={`${b.r*0.22}`} fill="rgba(255,255,255,0.13)"/>
+          </g>
+        ))}
+        {/* Burbujas pequeñas — doble cantidad */}
+        {[
+          {cx:12,cy:42,r:10},{cx:22,cy:70,r:8},{cx:38,cy:28,r:11},{cx:50,cy:72,r:9},
+          {cx:62,cy:12,r:10},{cx:70,cy:68,r:7},{cx:80,cy:30,r:8},{cx:90,cy:60,r:10},
+          {cx:95,cy:35,r:7},{cx:45,cy:48,r:9},{cx:58,cy:85,r:8},{cx:28,cy:58,r:7},
+          {cx:75,cy:90,r:9},{cx:8,cy:60,r:6},{cx:33,cy:95,r:8},{cx:82,cy:10,r:7},
+        ].map((b,i) => (
+          <circle key={i+30} cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b2)" stroke="rgba(150,210,255,0.2)" strokeWidth="0.6"/>
+        ))}
+      </svg>
+      {/* Título centrado sobre el fondo */}
+      <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"center", minHeight:160, padding:"20px 16px" }}>
+        <div style={{ textAlign:"center" }}>
+          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2 }}>BURBUPACK</p>
+          <p style={{ color:"rgba(255,255,255,0.85)", fontSize:20, fontWeight:500, margin:"4px 0", lineHeight:1.2 }}>Bolsas y Láminas</p>
+          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2 }}>COTIZADOR</p>
+        </div>
+      </div>
     </div>
   </div>
 );
@@ -417,15 +435,13 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
 
   return (
     <div style={{ fontFamily:"var(--font-sans)", background:"var(--color-background-primary)", minHeight:400 }}>
-      <BubbleHeader>
-        <div style={{ padding:"12px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <BurbuLogo/>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ color:"rgba(255,255,255,0.9)", fontSize:12, fontWeight:500 }}>{role === "admin" ? "Admin" : as.vendedores.find(v => v.id === vidId)?.nombre}</div>
-            <button onClick={() => { setScreen("login"); setLoginStep("select"); setPinInput(""); setRole(null); }} style={{ fontSize:11, color:"rgba(255,255,255,0.5)", background:"none", border:"none", cursor:"pointer", padding:0 }}>Salir</button>
-          </div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px 6px" }}>
+        <BurbuLogo/>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ color:"var(--color-text-primary)", fontSize:12, fontWeight:500 }}>{role === "admin" ? "Admin" : as.vendedores.find(v => v.id === vidId)?.nombre}</div>
+          <button onClick={() => { setScreen("login"); setLoginStep("select"); setPinInput(""); setRole(null); }} style={{ fontSize:11, color:BD, background:"none", border:"none", cursor:"pointer", padding:0 }}>Salir</button>
         </div>
-      </BubbleHeader>
+      </div>
 
       <div style={{ padding:"0 14px" }}>
         <div style={{ display:"flex", gap:6, marginBottom:14 }}>
