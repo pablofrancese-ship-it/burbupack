@@ -1,4 +1,4 @@
-// BurbuPack v6 - fix millares
+// BurbuPack v7
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -77,14 +77,15 @@ function calcular(inp, adm) {
   if (fajas <= 0) return { anchoReq, anchoMaquina, fajas:0, error:true };
   const desperdicioCm = Math.round(anchoMaquina - fajas * anchoReq);
   const pctDesp = Math.round((desperdicioCm / anchoMaquina) * 100);
-
   const cantMillares = parseFloat(millares) || 0;
   const cantUnidades = cantMillares * 1000;
   const cantUnidadesInt = Math.round(cantUnidades);
 
+  // Punto 2: si se usa cinta, forzar triple
+  const capasEfectivas = (cintaRep || cintaInv) ? "triple" : capas;
   const PESO_M2 = { Standard:0.0777, Microburbuja:0.092, Burbujón:0.092 };
   const factorTipo  = tipo === "lamina" ? 0.5 : 1;
-  const factorCapas = capas === "triple" ? 1.5 : 1;
+  const factorCapas = capasEfectivas === "triple" ? 1.5 : 1;
   const factorColor = color ? 1.25 : 1;
   const costoM2ars  = (PESO_M2[burbuja]||0.0777) * adm.precioPE * adm.tipoCambio * factorTipo * factorCapas * factorColor;
   const m2Unidad    = (anchoNum / 100) * (largoNum / 100);
@@ -101,29 +102,28 @@ function calcular(inp, adm) {
   const rentaMult   = 1 + (adm.rentabilidades[rangoIdx] || 2);
   const precioBase  = costoPorUnidad * rentaMult;
 
-  // Calibración: se suma DESPUÉS de rentabilidad si total < mínimo USD
   const totalBaseUSD = cantUnidadesInt > 0 ? (precioBase * cantUnidadesInt) / adm.tipoCambio : 0;
   const aplicaCalib  = cantUnidadesInt > 0 && totalBaseUSD < (adm.minimoUSD || 300);
-  const calibPorUnidad = aplicaCalib ? ((adm.costoCalibacion || 100) * adm.tipoCambio) / cantUnidades : 0;
+  const calibPorUnidad = aplicaCalib ? ((adm.costoCalibacion || 100) * adm.tipoCambio) / cantUnidadesInt : 0;
 
   const precioPorUnidad = precioBase + calibPorUnidad;
-  const precioTotal     = precioPorUnidad * cantUnidades;
-  const costoTotal      = costoPorUnidad  * cantUnidades;
+  const precioTotal     = precioPorUnidad * cantUnidadesInt;
+  const costoTotal      = costoPorUnidad  * cantUnidadesInt;
   const utilidad        = precioTotal - costoTotal;
 
   return {
     anchoReq, anchoMaquina, fajas, desperdicioCm, pctDesp,
     costoPorUnidad, precioPorUnidad,
     precioPorUnidadUSD:  precioPorUnidad / adm.tipoCambio,
-    precioPorMillar:     precioPorUnidad * 1000,
-    precioPorMillarUSD: (precioPorUnidad * 1000) / adm.tipoCambio,
+    precioPorMillar:     ceil(precioPorUnidad * 1000),
+    precioPorMillarUSD:  ceil((precioPorUnidad * 1000) / adm.tipoCambio),
     precioTotal,  precioTotalUSD:  precioTotal / adm.tipoCambio,
     costoTotal,   costoTotalUSD:   costoTotal  / adm.tipoCambio,
     utilidad,     utilidadUSD:     utilidad    / adm.tipoCambio,
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
     rangoLabel: RANGOS[rangoIdx].label,
     rentaPct:   Math.round(adm.rentabilidades[rangoIdx] * 100),
-    cantUnidades: cantUnidadesInt, cantMillares, error:false,
+    cantUnidades: cantUnidadesInt, cantMillares, capasEfectivas, error:false,
   };
 }
 
@@ -164,7 +164,7 @@ export default function App() {
   const [clienteNombre, setClienteNombre] = useState("");
   const [savedMsg,      setSavedMsg]      = useState("");
   const [dolarLoading,  setDolarLoading]  = useState(false);
-  const [inp, setInp] = useState({ tipo:"bolsa", burbuja:"Standard", capas:"simple", ancho:"", largo:"", solapa:"", millares:"", cintaRep:false, cintaInv:false, color:false });
+  const [inp, setInp] = useState({ tipo:"bolsa", burbuja:"Standard", capas:"simple", ancho:"", largo:"", solapa:"", millares:"", cintaRep:false, cintaInv:false, color:false, colorNombre:"" });
   const [res, setRes] = useState(null);
 
   const setI = (k,v) => setInp(p => ({ ...p, [k]:v }));
@@ -204,10 +204,33 @@ export default function App() {
 
   function whatsapp() {
     if (!res || res.error) return;
-    const vend = role === "admin" ? "BurbuPack" : as.vendedores.find(x => x.id === vidId)?.nombre || "";
+    const vend = role === "admin" ? "Admin" : as.vendedores.find(x => x.id === vidId)?.nombre || "";
     const tipo = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
-    const med  = inp.tipo === "bolsa" ? `${inp.ancho}×${inp.largo} cm | Solapa: ${inp.solapa} cm` : `${inp.ancho}×${inp.largo} cm`;
-    const msg  = `*Cotización BurbuPack* — ${vend}\n📅 ${today()}${clienteNombre ? `\n👤 ${clienteNombre}` : ""}\n\n*Producto:* ${tipo} ${inp.burbuja} ${inp.capas}\n*Medidas:* ${med}\n*Cantidad:* ${res.cantMillares} mil u. (${res.cantUnidades.toLocaleString("es-AR")})\n\n💲 *Por millar:*\nU$S ${fmtDec(res.precioPorMillarUSD,2)}.-\n$ ${fmt(res.precioPorMillar)}.-\n\n✅ *TOTAL:*\nU$S ${fmt(res.precioTotalUSD)}.- + IVA\n$ ${fmt(res.precioTotal)}.- + IVA\n\n_TC: $${fmt(as.tipoCambio)} ARS/USD_`;
+    const solapaV = parseFloat(inp.solapa) || 0;
+    const solapaStr = inp.tipo === "bolsa" && solapaV > 0 ? ` | Solapa: ${inp.solapa} cm` : "";
+    const med = inp.tipo === "bolsa" ? `${inp.ancho}×${inp.largo} cm${solapaStr}` : `${inp.ancho}×${inp.largo} cm`;
+    const colorStr = inp.color && inp.colorNombre ? ` | Color: ${inp.colorNombre}` : inp.color ? " | Color" : "";
+    const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable"].filter(Boolean).join(", ");
+    const extrasStr = extras ? ` | ${extras}` : "";
+    // Punto 4: ▶ en lugar de 💲, Empack Inc SRL antes del vendedor
+    // Punto 4.2: USD en negrita y subrayado, ARS normal
+    const msg =
+`*Empack Inc SRL* — ${vend}
+📅 ${today()}${clienteNombre ? `\n👤 ${clienteNombre}` : ""}
+
+*Producto:* ${tipo} ${inp.burbuja} ${res.capasEfectivas}
+*Medidas:* ${med}${extrasStr}${colorStr}
+*Cantidad:* ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)
+
+▶ *Por millar:*
+*_U$S ${fmt(res.precioPorMillarUSD)}.-_*
+$ ${fmt(res.precioPorMillar)}.-
+
+▶ *TOTAL:*
+*_U$S ${fmt(res.precioTotalUSD)}.- + IVA_*
+$ ${fmt(res.precioTotal)}.- + IVA
+
+_TC: $${fmt(as.tipoCambio)} ARS/USD_`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
   }
 
@@ -215,13 +238,13 @@ export default function App() {
     if (!res || res.error) return;
     const vend  = role === "admin" ? "Administrador" : as.vendedores.find(v => v.id === vidId)?.nombre || "";
     const tipo  = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
-    const med   = inp.tipo === "bolsa" ? `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm | Solapa: ${inp.solapa} cm` : `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm`;
-    const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable", inp.color && "Color"].filter(Boolean).join(", ") || "Ninguno";
+    const solapaV = parseFloat(inp.solapa) || 0;
+    const solapaStr = inp.tipo === "bolsa" && solapaV > 0 ? ` | Solapa: ${inp.solapa} cm` : "";
+    const med   = inp.tipo === "bolsa" ? `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm${solapaStr}` : `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm`;
+    const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable", inp.color && `Color: ${inp.colorNombre||"Sí"}`].filter(Boolean).join(", ") || "Ninguno";
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cotización BurbuPack</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:36px;color:#1a1a1a;font-size:14px}
-.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;margin-bottom:24px;border-bottom:3px solid #0099d8}
-.burbu{font-size:30px;font-weight:900;color:#0099d8}.burbu span{color:#444;font-weight:400}
-.em{font-size:18px;font-weight:700;color:#0099d8;text-align:right}.em small{font-size:11px;color:#999;display:block;letter-spacing:2px}
+.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;margin-bottom:24px;border-bottom:3px solid #0099d8;background:#000;padding:16px 20px;border-radius:10px;margin-bottom:24px}
 table{width:100%;border-collapse:collapse;margin:14px 0}
 th{background:#e6f6fd;color:#005f8a;text-align:left;padding:9px 14px;font-size:12px;font-weight:700;border-bottom:2px solid #0099d8}
 td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
@@ -237,19 +260,19 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
 .footer{margin-top:28px;font-size:11px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:12px}
 </style></head><body>
 <div class="header">
-  <div><div class="burbu">Burbu<span>pack</span><sup style="font-size:10px">®</sup></div></div>
-  <div class="em">empack<sup style="font-size:9px">®</sup><small>inc.</small></div>
+  <img src="/burbupack.png" style="height:50px"/>
+  <img src="/empack.png" style="height:36px"/>
 </div>
 <p style="font-size:13px;color:#666;margin-bottom:16px">📅 ${today()} &nbsp;|&nbsp; Vendedor: <b>${vend}</b>${clienteNombre ? ` &nbsp;|&nbsp; Cliente: <b>${clienteNombre}</b>` : ""}</p>
 <table><tr><th colspan="2">DETALLE DEL PRODUCTO</th></tr>
-<tr><td>Tipo</td><td><b>${tipo} ${inp.burbuja} — ${inp.capas}</b></td></tr>
+<tr><td>Tipo</td><td><b>${tipo} ${inp.burbuja} — ${res.capasEfectivas}</b></td></tr>
 <tr><td>Medidas</td><td>${med}</td></tr>
 <tr><td>Cantidad</td><td>${res.cantMillares} millares (${res.cantUnidades.toLocaleString("es-AR")} unidades)</td></tr>
 <tr><td>Extras</td><td>${extras}</td></tr>
 </table>
 <div class="price-grid">
 <div class="pbox"><div class="lbl">POR UNIDAD</div><div class="usd">U$S ${fmtDec(res.precioPorUnidadUSD,2)}</div><div class="ars">$ ${fmtDec(res.precioPorUnidad,2)}</div></div>
-<div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">U$S ${fmtDec(res.precioPorMillarUSD,2)}.-</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
+<div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">U$S ${fmt(res.precioPorMillarUSD)}.-</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
 </div>
 <div class="total">
 <div class="lbl">TOTAL — ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
@@ -257,7 +280,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
 <div class="ars">$ ${fmt(res.precioTotal)}.- <span style="font-size:13px;font-weight:400">+ IVA</span></div>
 <div style="font-size:11px;opacity:.6;margin-top:8px">Tipo de cambio: $${fmt(as.tipoCambio)} ARS/USD</div>
 </div>
-<div class="footer">Cotización generada por sistema BurbuPack / Empack Inc. — ${today()}</div>
+<div class="footer">Cotización generada por Empack Inc SRL / BurbuPack — ${today()}</div>
 </body></html>`;
     const w = window.open("", "_blank"); w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500);
   }
@@ -319,12 +342,21 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
     : largoV > 0 && (largoV < lim.largoMin || largoV > lim.largoMax)
     ? `Largo debe ser entre ${lim.largoMin} y ${lim.largoMax} cm para ${inp.burbuja}.`
     : null;
-  const usaCinta   = inp.cintaRep || inp.cintaInv;
-  const solapaV    = parseFloat(inp.solapa) || 0;
+  const usaCinta    = inp.cintaRep || inp.cintaInv;
+  const solapaV     = parseFloat(inp.solapa) || 0;
   const solapaError = usaCinta && inp.tipo === "bolsa"
     ? solapaV < 4 ? "Con cinta, la solapa debe ser mínimo 4 cm."
     : largoV > 0 && solapaV > largoV * 0.5 ? `Con cinta, la solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
     : null : null;
+
+  // Punto 3: color especial
+  const colorNombreL = (inp.colorNombre || "").trim().toLowerCase();
+  const colorEspecial = inp.color && colorNombreL !== "" && colorNombreL !== "negro" && colorNombreL !== "blanco";
+  const colorError = colorEspecial && res && !res.error && res.cantMillares > 0
+    ? res.precioTotalUSD < 1000
+      ? `El color "${inp.colorNombre}" requiere pedido mínimo de U$S 1.000. Total actual: U$S ${Math.ceil(res.precioTotalUSD)}.`
+      : null
+    : null;
 
   const misCot = role === "admin" ? as.cotizaciones : as.cotizaciones.filter(c => c.vendedor === as.vendedores.find(v => v.id === vidId)?.nombre);
 
@@ -358,25 +390,33 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
               {["simple","triple"].map(c => <button key={c} onClick={() => setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>)}
             </div>
+            {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Triple</p>}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
               <div><label style={lS}>Ancho (cm)</label><input type="number" value={inp.ancho} onChange={e => setI("ancho",e.target.value)} style={iS} placeholder="0"/></div>
               <div><label style={lS}>Largo (cm)</label><input type="number" value={inp.largo} onChange={e => setI("largo",e.target.value)} style={iS} placeholder="0"/></div>
               {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input type="number" value={inp.solapa} onChange={e => setI("solapa",e.target.value)} style={iS} placeholder="0"/></div>}
               <div><label style={lS}>Cantidad (millares)</label><input type="number" step="0.5" value={inp.millares} onChange={e => setI("millares",e.target.value)} style={iS} placeholder="ej: 2.5"/></div>
             </div>
-            <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 8 : 0 }}>
               {[["cintaRep","Cinta repegable"],["cintaInv","Cinta inviolable"],["color","Color"]].map(([k,lbl]) => (
                 <label key={k} style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
                   <input type="checkbox" checked={inp[k]} onChange={e => setI(k,e.target.checked)}/>{lbl}
                 </label>
               ))}
             </div>
+            {inp.color && (
+              <div style={{ marginTop:8 }}>
+                <label style={lS}>¿Qué color?</label>
+                <input value={inp.colorNombre} onChange={e => setI("colorNombre",e.target.value)} style={iS} placeholder="Ej: azul, rojo, verde..."/>
+              </div>
+            )}
           </div>
 
           {medidaError && <div style={{ background:"#fdf2f2", border:`0.5px solid #e74c3c`, borderRadius:10, padding:"10px 14px", marginBottom:12 }}><p style={{ color:"#c0392b", fontSize:13, margin:0, fontWeight:500 }}>⚠️ {medidaError}</p></div>}
           {solapaError && <div style={{ background:"#fff8e1", border:`0.5px solid #f39c12`, borderRadius:10, padding:"10px 14px", marginBottom:12 }}><p style={{ color:"#b7770d", fontSize:13, margin:0, fontWeight:500 }}>⚠️ {solapaError}</p></div>}
+          {colorError  && <div style={{ background:"#fff8e1", border:`0.5px solid #f39c12`, borderRadius:10, padding:"10px 14px", marginBottom:12 }}><p style={{ color:"#b7770d", fontSize:13, margin:0, fontWeight:500 }}>⚠️ {colorError}</p></div>}
 
-          {res && !res.error && res.cantMillares > 0 && !solapaError && !medidaError && (<>
+          {res && !res.error && res.cantMillares > 0 && !solapaError && !medidaError && !colorError && (<>
             {role === "admin" && (
               <div style={{ ...crd, background:BG, border:`0.5px solid ${B}40` }}>
                 <p style={{ fontSize:11, color:BD, margin:"0 0 10px", fontWeight:700, letterSpacing:0.8 }}>FABRICACIÓN</p>
@@ -398,13 +438,13 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
-                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorMillarUSD,2)}.-</p>
+                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmt(res.precioPorMillarUSD)}.-</p>
                   <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorMillar)}.-</p>
                 </div>
               </div>
 
               <div style={{ background:`linear-gradient(135deg,${B},${BD})`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
-                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {parseFloat(inp.millares)||0} mil ({((parseFloat(inp.millares)||0)*1000).toLocaleString("es-AR")} u.)</p>
+                <p style={{ fontSize:11, color:"rgba(255,255,255,0.75)", margin:"0 0 4px" }}>Total — {res.cantMillares} mil ({res.cantUnidades.toLocaleString("es-AR")} u.)</p>
                 <p style={{ fontSize:26, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:15, fontWeight:400 }}>+ IVA</span></p>
                 <p style={{ fontSize:18, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:12, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
                 <p style={{ fontSize:11, color:"rgba(255,255,255,0.55)", margin:"6px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
@@ -460,7 +500,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                     <span style={{ fontSize:12, color:"var(--color-text-secondary)" }}>{c.fecha}</span>
                   </div>
                   {role==="admin" && <p style={{ fontSize:12, color:BD, margin:"0 0 4px" }}>{c.vendedor}</p>}
-                  <p style={{ fontSize:13, color:"var(--color-text-secondary)", margin:"0 0 8px" }}>{c.inp.tipo==="bolsa"?"Bolsa":"Lámina"} {c.inp.burbuja} {c.inp.capas} · {c.res.cantMillares} mil u.</p>
+                  <p style={{ fontSize:13, color:"var(--color-text-secondary)", margin:"0 0 8px" }}>{c.inp.tipo==="bolsa"?"Bolsa":"Lámina"} {c.inp.burbuja} {c.res.capasEfectivas||c.inp.capas} · {c.res.cantMillares} mil u.</p>
                   <div style={{ display:"flex", gap:8 }}>
                     <div style={mC}><p style={{ fontSize:11, color:BD, margin:"0 0 2px", fontWeight:600 }}>USD</p><p style={{ fontSize:15, fontWeight:700, margin:0, color:BDK }}>U$S {fmt(c.res.precioTotalUSD)}</p></div>
                     <div style={mC}><p style={{ fontSize:11, color:BD, margin:"0 0 2px", fontWeight:600 }}>ARS</p><p style={{ fontSize:15, fontWeight:700, margin:0, color:BDK }}>${fmt(c.res.precioTotal)}</p></div>
