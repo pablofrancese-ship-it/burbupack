@@ -135,18 +135,12 @@ function calcular(inp, adm) {
   };
 }
 
-const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:44, display:"block" }}/>;
-const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:32, display:"block" }}/>;
+const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:88, display:"block" }}/>;
+const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:64, display:"block" }}/>;
 
 const BubbleHeader = ({ children }) => (
   <div style={{ marginBottom:14 }}>
-    {/* Logos fuera del fondo de burbujas */}
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px 6px" }}>
-      <BurbuLogo/>
-      <EmpackLogo/>
-    </div>
-    {/* Fondo burbujas centrado con título */}
-    <div style={{ position:"relative", overflow:"hidden", borderRadius:16, margin:"0 32px", minHeight:160 }}>
+    <div style={{ position:"relative", overflow:"hidden", borderRadius:16, margin:"0 0", minHeight:180 }}>
       <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
         <defs>
           <radialGradient id="bg" cx="50%" cy="50%" r="70%">
@@ -165,7 +159,6 @@ const BubbleHeader = ({ children }) => (
           </radialGradient>
         </defs>
         <rect width="100%" height="100%" fill="url(#bg)"/>
-        {/* Burbujas grandes — doble cantidad */}
         {[
           {cx:6,cy:20,r:22},{cx:18,cy:50,r:28},{cx:30,cy:15,r:20},{cx:42,cy:65,r:25},
           {cx:55,cy:25,r:22},{cx:65,cy:55,r:18},{cx:75,cy:18,r:26},{cx:85,cy:45,r:20},
@@ -179,7 +172,6 @@ const BubbleHeader = ({ children }) => (
             <ellipse cx={`${b.cx-b.r*0.25}%`} cy={`${b.cy-b.r*0.3}%`} rx={`${b.r*0.45}`} ry={`${b.r*0.22}`} fill="rgba(255,255,255,0.13)"/>
           </g>
         ))}
-        {/* Burbujas pequeñas — doble cantidad */}
         {[
           {cx:12,cy:42,r:10},{cx:22,cy:70,r:8},{cx:38,cy:28,r:11},{cx:50,cy:72,r:9},
           {cx:62,cy:12,r:10},{cx:70,cy:68,r:7},{cx:80,cy:30,r:8},{cx:90,cy:60,r:10},
@@ -189,12 +181,24 @@ const BubbleHeader = ({ children }) => (
           <circle key={i+30} cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b2)" stroke="rgba(150,210,255,0.2)" strokeWidth="0.6"/>
         ))}
       </svg>
-      {/* Título centrado sobre el fondo */}
-      <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"center", minHeight:160, padding:"20px 16px" }}>
-        <div style={{ textAlign:"center" }}>
-          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2 }}>BURBUPACK</p>
-          <p style={{ color:"rgba(255,255,255,0.85)", fontSize:20, fontWeight:500, margin:"4px 0", lineHeight:1.2 }}>Bolsas y Láminas</p>
-          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2 }}>COTIZADOR</p>
+
+      {/* Contenido superpuesto */}
+      <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"space-between", minHeight:180, padding:"16px 12px" }}>
+        {/* Logo BurbuPack izquierda con fondo blanco */}
+        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", display:"flex", alignItems:"center", justifyContent:"flex-start", flexShrink:0 }}>
+          <BurbuLogo/>
+        </div>
+
+        {/* Título centro */}
+        <div style={{ textAlign:"center", flex:1, padding:"0 12px" }}>
+          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>BURBUPACK</p>
+          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:20, fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y Láminas</p>
+          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>COTIZADOR</p>
+        </div>
+
+        {/* Logo Empack derecha con fondo blanco */}
+        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", display:"flex", alignItems:"center", justifyContent:"flex-end", flexShrink:0 }}>
+          <EmpackLogo/>
         </div>
       </div>
     </div>
