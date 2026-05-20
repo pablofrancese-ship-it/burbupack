@@ -135,6 +135,9 @@ function calcular(inp, adm) {
   };
 }
 
+const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:44, display:"block" }}/>;
+const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:32, display:"block" }}/>;
+
 const BubbleHeader = ({ children }) => (
   <div style={{ position:"relative", overflow:"hidden", borderRadius:"0 0 24px 24px", marginBottom:14 }}>
     <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
