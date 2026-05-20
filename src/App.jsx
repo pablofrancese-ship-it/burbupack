@@ -135,8 +135,8 @@ function calcular(inp, adm) {
   };
 }
 
-const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:88, display:"block" }}/>;
-const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:64, display:"block" }}/>;
+const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(44px, 8vw, 88px)", display:"block" }}/>;
+const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(32px, 6vw, 64px)", display:"block" }}/>;
 
 const BubbleHeader = ({ children }) => (
   <div style={{ marginBottom:14 }}>
@@ -191,9 +191,9 @@ const BubbleHeader = ({ children }) => (
 
         {/* Título centro */}
         <div style={{ textAlign:"center", flex:1, padding:"0 12px" }}>
-          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>BURBUPACK</p>
-          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:20, fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y Láminas</p>
-          <p style={{ color:"white", fontSize:26, fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>COTIZADOR</p>
+          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>BURBUPACK</p>
+          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(14px,4vw,20px)", fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y Láminas</p>
+          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>COTIZADOR</p>
         </div>
 
         {/* Logo Empack derecha con fondo blanco */}
@@ -360,12 +360,12 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
     const w = window.open("", "_blank"); w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500);
   }
 
-  const iS   = { width:"100%", boxSizing:"border-box", padding:"8px 12px", fontSize:15, borderRadius:8, border:`0.5px solid ${B}40`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
-  const lS   = { fontSize:12, color:BD, marginBottom:4, display:"block", fontWeight:500, letterSpacing:0.3 };
-  const crd  = { background:"var(--color-background-primary)", border:`0.5px solid ${B}30`, borderRadius:14, padding:14, marginBottom:12, boxShadow:`0 1px 4px rgba(0,153,216,0.07)` };
+  const iS   = { width:"100%", boxSizing:"border-box", padding:"10px 12px", fontSize:"clamp(14px, 3.5vw, 16px)", borderRadius:8, border:`0.5px solid ${B}40`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
+  const lS   = { fontSize:"clamp(11px, 2.5vw, 13px)", color:BD, marginBottom:4, display:"block", fontWeight:500, letterSpacing:0.3 };
+  const crd  = { background:"var(--color-background-primary)", border:`0.5px solid ${B}30`, borderRadius:14, padding:"clamp(10px,3vw,16px)", marginBottom:12, boxShadow:`0 1px 4px rgba(0,153,216,0.07)` };
   const mC   = { background:BG, borderRadius:10, padding:"10px 12px", flex:1, minWidth:0, border:`0.5px solid ${B}25` };
-  const tBtn   = act => ({ flex:1, padding:"9px 0", fontSize:13, borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`0.5px solid ${act?B:B+"50"}`, fontWeight:act?600:400 });
-  const togBtn = act => ({ flex:1, padding:"8px 0", fontSize:13, borderRadius:8, cursor:"pointer", background:act?`${B}18`:"transparent", color:act?BDK:"var(--color-text-secondary)", border:`0.5px solid ${act?B:"var(--color-border-tertiary)"}`, fontWeight:act?600:400 });
+  const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px, 2.8vw, 14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`0.5px solid ${act?B:B+"50"}`, fontWeight:act?600:400 });
+  const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px, 2.5vw, 13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"transparent", color:act?BDK:"var(--color-text-secondary)", border:`0.5px solid ${act?B:"var(--color-border-tertiary)"}`, fontWeight:act?600:400 });
 
   if (loading) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:300, gap:16 }}>
@@ -374,7 +374,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
   );
 
   if (screen === "login") return (
-    <div style={{ fontFamily:"var(--font-sans)", minHeight:400, background:"var(--color-background-primary)" }}>
+    <div style={{ fontFamily:"var(--font-sans)", minHeight:400, background:"var(--color-background-primary)", maxWidth:860, margin:"0 auto" }}>
       <BubbleHeader>
         <div style={{ padding:"28px 20px 20px", textAlign:"center" }}>
           <BurbuLogo/>
@@ -438,7 +438,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
   const misCot = role === "admin" ? as.cotizaciones : as.cotizaciones.filter(c => c.vendedor === as.vendedores.find(v => v.id === vidId)?.nombre);
 
   return (
-    <div style={{ fontFamily:"var(--font-sans)", background:"var(--color-background-primary)", minHeight:400 }}>
+    <div style={{ fontFamily:"var(--font-sans)", background:"var(--color-background-primary)", minHeight:400, maxWidth:860, margin:"0 auto" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px 6px" }}>
         <BurbuLogo/>
         <div style={{ textAlign:"right" }}>
