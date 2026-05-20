@@ -129,7 +129,7 @@ function calcular(inp, adm) {
     costoTotal,   costoTotalUSD:   costoTotal  / adm.tipoCambio,
     utilidad,     utilidadUSD:     utilidad    / adm.tipoCambio,
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
-    rangoLabel: RANGOS[rangoIdx].label,
+    metrosLinealesJumbo: (anchoReq / 100) * cantUnidadesInt,
     rentaPct:   Math.round(adm.rentabilidades[rangoIdx] * 100),
     cantUnidades: cantUnidadesInt, cantMillares, capasEfectivas, error:false,
   };
@@ -429,7 +429,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               <div style={{ ...crd, background:BG, border:`0.5px solid ${B}40` }}>
                 <p style={{ fontSize:11, color:BD, margin:"0 0 10px", fontWeight:700, letterSpacing:0.8 }}>FABRICACIÓN</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"]].map(([k,v]) => (
+                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"],["Metros lineales de jumbo a fabricar", fmt(res.metrosLinealesJumbo)+" mts"]].map(([k,v]) => (
                     <div key={k}><p style={{ fontSize:11, color:BD, margin:"0 0 2px" }}>{k}</p><p style={{ fontSize:15, fontWeight:600, margin:0, color:BDK }}>{v}</p></div>
                   ))}
                 </div>
