@@ -123,13 +123,14 @@ function calcular(inp, adm) {
     anchoReq, anchoMaquina, fajas, desperdicioCm, pctDesp,
     costoPorUnidad, precioPorUnidad,
     precioPorUnidadUSD:  precioPorUnidad / adm.tipoCambio,
-    precioPorMillar:     ceil(precioPorUnidad * 1000),
-    precioPorMillarUSD:  ceil((precioPorUnidad * 1000) / adm.tipoCambio),
+    precioPorMillar:     precioPorUnidad * 1000,
+    precioPorMillarUSD:  (precioPorUnidad * 1000) / adm.tipoCambio,
     precioTotal,  precioTotalUSD:  precioTotal / adm.tipoCambio,
     costoTotal,   costoTotalUSD:   costoTotal  / adm.tipoCambio,
     utilidad,     utilidadUSD:     utilidad    / adm.tipoCambio,
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
     metrosLinealesJumbo: (anchoReq / 100) * cantUnidadesInt,
+    rollosJumboNecesarios: Math.ceil(((anchoReq / 100) * cantUnidadesInt) / 200),
     rentaPct:   Math.round(adm.rentabilidades[rangoIdx] * 100),
     cantUnidades: cantUnidadesInt, cantMillares, capasEfectivas, error:false,
   };
@@ -422,9 +423,12 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
   const usaCinta    = inp.cintaRep || inp.cintaInv;
   const solapaV     = parseFloat(inp.solapa) || 0;
   const solapaError = usaCinta && inp.tipo === "bolsa"
-    ? solapaV < 4 ? "Con cinta, la solapa debe ser mínimo 4 cm."
+    ? solapaV <= 4 ? "Con cinta, la solapa debe ser mayor a 4 cm."
     : largoV > 0 && solapaV > largoV * 0.5 ? `Con cinta, la solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
-    : null : null;
+    : null
+    : inp.tipo === "bolsa" && solapaV > 0 && solapaV <= 4 ? "La solapa debe ser mayor a 4 cm."
+    : inp.tipo === "bolsa" && solapaV > 0 && largoV > 0 && solapaV > largoV * 0.5 ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
+    : null;
 
   // Punto 3: color especial
   const colorNombreL = (inp.colorNombre || "").trim().toLowerCase();
@@ -468,16 +472,20 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               {["simple","triple"].map(c => <button key={c} onClick={() => setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>)}
             </div>
             {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Triple</p>}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-              <div><label style={lS}>Ancho (cm)</label><input type="number" value={inp.ancho} onChange={e => setI("ancho",e.target.value)} style={iS} placeholder="0"/></div>
-              <div><label style={lS}>Largo (cm)</label><input type="number" value={inp.largo} onChange={e => setI("largo",e.target.value)} style={iS} placeholder="0"/></div>
-              {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input type="number" value={inp.solapa} onChange={e => setI("solapa",e.target.value)} style={iS} placeholder="0"/></div>}
-              <div><label style={lS}>Cantidad (millares)</label><input type="number" step="0.5" value={inp.millares} onChange={e => setI("millares",e.target.value)} style={iS} placeholder="ej: 2.5"/></div>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+              <div><label style={lS}>Ancho (cm)</label><input type="number" min="0" value={inp.ancho} onChange={e => setI("ancho", Math.max(0, e.target.value))} style={iS} placeholder="0"/></div>
+              <div><label style={lS}>Largo (cm)</label><input type="number" min="0" value={inp.largo} onChange={e => setI("largo", Math.max(0, e.target.value))} style={iS} placeholder="0"/></div>
+              {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input type="number" min="0" value={inp.solapa} onChange={e => setI("solapa", Math.max(0, e.target.value))} style={iS} placeholder="0"/></div>}
+              <div><label style={lS}>Cantidad (millares)</label><input type="number" min="0" step="0.5" value={inp.millares} onChange={e => setI("millares", Math.max(0, e.target.value))} style={iS} placeholder="ej: 2.5"/></div>
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 8 : 0 }}>
               {[["cintaRep","Cinta repegable"],["cintaInv","Cinta inviolable"],["color","Color"]].map(([k,lbl]) => (
                 <label key={k} style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
-                  <input type="checkbox" checked={inp[k]} onChange={e => setI(k,e.target.checked)}/>{lbl}
+                  <input type="checkbox" checked={inp[k]} onChange={e => {
+                    if (k === "cintaRep" && e.target.checked) setInp(p => ({ ...p, cintaRep:true, cintaInv:false }));
+                    else if (k === "cintaInv" && e.target.checked) setInp(p => ({ ...p, cintaInv:true, cintaRep:false }));
+                    else setI(k, e.target.checked);
+                  }}/>{lbl}
                 </label>
               ))}
             </div>
@@ -498,7 +506,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               <div style={{ ...crd, background:BG, border:`0.5px solid ${B}40` }}>
                 <p style={{ fontSize:11, color:BD, margin:"0 0 10px", fontWeight:700, letterSpacing:0.8 }}>FABRICACIÓN</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"],["Metros lineales de jumbo a fabricar", fmt(res.metrosLinealesJumbo)+" mts"]].map(([k,v]) => (
+                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"],["Metros lineales a fabricar", fmt(res.metrosLinealesJumbo)+" mts"],["Rollos Jumbo necesarios", res.rollosJumboNecesarios+" rollos de 200 mts"]].map(([k,v]) => (
                     <div key={k}><p style={{ fontSize:11, color:BD, margin:"0 0 2px" }}>{k}</p><p style={{ fontSize:15, fontWeight:600, margin:0, color:BDK }}>{v}</p></div>
                   ))}
                 </div>
@@ -511,7 +519,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por unidad</p>
                   <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorUnidadUSD,3)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorUnidad)}</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmtDec(res.precioPorUnidad,2)}.-</p>
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
