@@ -1,4 +1,4 @@
-// BurbuPack v7
+// BurbuPack v8
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -54,6 +54,12 @@ const INIT = {
 const ceil   = n => Math.ceil(n);
 const fmt    = n => new Intl.NumberFormat("es-AR").format(ceil(n));
 const fmtDec = (n, d=2) => new Intl.NumberFormat("es-AR", { minimumFractionDigits:d, maximumFractionDigits:d }).format(n);
+const fmtARS = n => {
+  const v = n % 1 === 0 ? Math.ceil(n) : n;
+  return v % 1 === 0
+    ? new Intl.NumberFormat("es-AR").format(v) + ".-"
+    : new Intl.NumberFormat("es-AR", { minimumFractionDigits:2, maximumFractionDigits:2 }).format(v);
+};
 const today  = () => new Date().toLocaleDateString("es-AR");
 
 function getRangoIdx(m) {
@@ -65,7 +71,7 @@ function getRangoIdx(m) {
 }
 
 function calcular(inp, adm) {
-  const { tipo, burbuja, capas, ancho, largo, solapa, millares, cintaRep, cintaInv, color } = inp;
+  const { tipo, burbuja, capas, ancho, largo, solapa, millares, cintaRep, cintaInv, color, colorOpcion } = inp;
   const anchoMaquina = burbuja === "Standard" ? 192 : 144;
   const anchoNum  = parseFloat(ancho)  || 0;
   const largoNum  = parseFloat(largo)  || 0;
@@ -78,25 +84,23 @@ function calcular(inp, adm) {
   const desperdicioCm = Math.round(anchoMaquina - fajas * anchoReq);
   const pctDesp = Math.round((desperdicioCm / anchoMaquina) * 100);
   const cantMillares = parseFloat(millares) || 0;
-  const cantUnidades = cantMillares * 1000;
-  const cantUnidadesInt = Math.round(cantUnidades);
+  const cantUnidadesInt = Math.round(cantMillares * 1000);
 
-  // Punto 2: si se usa cinta, forzar triple
-  const capasEfectivas = (cintaRep || cintaInv) ? "triple" : capas;
+  // Color: negras/blancas fuerzan triple + 25%; otro solo +25%
+  const colorNegBlanc = color && (colorOpcion === "negras" || colorOpcion === "blancas");
+  const capasEfectivas = (cintaRep || cintaInv || colorNegBlanc) ? "triple" : capas;
+
   const PESO_M2 = { Standard:0.0777, Microburbuja:0.092, Burbujón:0.092 };
   const factorTipo  = tipo === "lamina" ? 0.5 : 1;
   const factorCapas = capasEfectivas === "triple" ? 1.5 : 1;
   const factorColor = color ? 1.25 : 1;
   const costoM2ars  = (PESO_M2[burbuja]||0.0777) * adm.precioPE * adm.tipoCambio * factorTipo * factorCapas * factorColor;
   const m2Unidad    = (anchoNum / 100) * (largoNum / 100);
-
-  // Costo material directo de la bolsa/lámina
   const costoMaterial = costoM2ars * m2Unidad;
 
-  // Costo desperdicio prorrateado solo si desperdicioCm <= 20
+  // Desperdicio prorrateado solo si <= 20cm
   const m2Desperdicio = desperdicioCm <= 20 && cantUnidadesInt > 0
-    ? ((desperdicioCm / 100) * (largoNum / 100)) / fajas  // m² de desperdicio por unidad
-    : 0;
+    ? ((desperdicioCm / 100) * (largoNum / 100)) / fajas : 0;
   const costoDesperdicio = costoM2ars * m2Desperdicio;
 
   const costoCmRep = adm.costoRolloRepegable  > 0 ? ((adm.costoRolloRepegable  * adm.tipoCambio) / (METROS_REP * 100)) * 3 : 0;
@@ -119,6 +123,10 @@ function calcular(inp, adm) {
   const costoTotal      = costoPorUnidad  * cantUnidadesInt;
   const utilidad        = precioTotal - costoTotal;
 
+  // Metros lineales: ancho bolsa/lamina en metros × unidades
+  const metrosLinealesJumbo = (anchoNum / 100) * cantUnidadesInt;
+  const rollosJumboNecesarios = Math.ceil(metrosLinealesJumbo / 200);
+
   return {
     anchoReq, anchoMaquina, fajas, desperdicioCm, pctDesp,
     costoPorUnidad, precioPorUnidad,
@@ -129,78 +137,41 @@ function calcular(inp, adm) {
     costoTotal,   costoTotalUSD:   costoTotal  / adm.tipoCambio,
     utilidad,     utilidadUSD:     utilidad    / adm.tipoCambio,
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
-    metrosLinealesJumbo: (anchoReq / 100) * cantUnidadesInt,
-    rollosJumboNecesarios: Math.ceil(((anchoReq / 100) * cantUnidadesInt) / 200),
+    rangoLabel: RANGOS[rangoIdx].label,
     rentaPct:   Math.round(adm.rentabilidades[rangoIdx] * 100),
-    cantUnidades: cantUnidadesInt, cantMillares, capasEfectivas, error:false,
+    cantUnidades: cantUnidadesInt, cantMillares, capasEfectivas,
+    metrosLinealesJumbo, rollosJumboNecesarios, error:false,
   };
 }
 
 const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(44px, 8vw, 88px)", display:"block" }}/>;
 const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(32px, 6vw, 64px)", display:"block" }}/>;
 
-const BubbleHeader = ({ children }) => (
+const BubbleHeader = () => (
   <div style={{ marginBottom:14 }}>
     <div style={{ position:"relative", overflow:"hidden", borderRadius:16, margin:"0 0", minHeight:180 }}>
       <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
         <defs>
-          <radialGradient id="bg" cx="50%" cy="50%" r="70%">
-            <stop offset="0%" stopColor="#1a3a4a"/>
-            <stop offset="100%" stopColor="#060f14"/>
-          </radialGradient>
-          <radialGradient id="b1" cx="35%" cy="30%" r="65%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.18)"/>
-            <stop offset="60%" stopColor="rgba(180,220,255,0.06)"/>
-            <stop offset="100%" stopColor="rgba(100,180,255,0.0)"/>
-          </radialGradient>
-          <radialGradient id="b2" cx="30%" cy="25%" r="65%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.22)"/>
-            <stop offset="55%" stopColor="rgba(180,220,255,0.07)"/>
-            <stop offset="100%" stopColor="rgba(100,180,255,0.0)"/>
-          </radialGradient>
+          <radialGradient id="bg" cx="50%" cy="50%" r="70%"><stop offset="0%" stopColor="#1a3a4a"/><stop offset="100%" stopColor="#060f14"/></radialGradient>
+          <radialGradient id="b1" cx="35%" cy="30%" r="65%"><stop offset="0%" stopColor="rgba(255,255,255,0.18)"/><stop offset="60%" stopColor="rgba(180,220,255,0.06)"/><stop offset="100%" stopColor="rgba(100,180,255,0.0)"/></radialGradient>
+          <radialGradient id="b2" cx="30%" cy="25%" r="65%"><stop offset="0%" stopColor="rgba(255,255,255,0.22)"/><stop offset="55%" stopColor="rgba(180,220,255,0.07)"/><stop offset="100%" stopColor="rgba(100,180,255,0.0)"/></radialGradient>
         </defs>
         <rect width="100%" height="100%" fill="url(#bg)"/>
-        {[
-          {cx:6,cy:20,r:22},{cx:18,cy:50,r:28},{cx:30,cy:15,r:20},{cx:42,cy:65,r:25},
-          {cx:55,cy:25,r:22},{cx:65,cy:55,r:18},{cx:75,cy:18,r:26},{cx:85,cy:45,r:20},
-          {cx:93,cy:22,r:18},{cx:10,cy:78,r:24},{cx:25,cy:88,r:20},{cx:40,cy:80,r:16},
-          {cx:52,cy:90,r:22},{cx:68,cy:82,r:18},{cx:80,cy:75,r:24},{cx:92,cy:70,r:16},
-          {cx:35,cy:40,r:14},{cx:60,cy:42,r:16},{cx:48,cy:10,r:18},{cx:72,cy:38,r:14},
-          {cx:15,cy:35,r:12},{cx:88,cy:90,r:20},{cx:5,cy:92,r:14},{cx:97,cy:50,r:12},
-        ].map((b,i) => (
-          <g key={i}>
-            <circle cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b1)" stroke="rgba(150,210,255,0.25)" strokeWidth="0.8"/>
-            <ellipse cx={`${b.cx-b.r*0.25}%`} cy={`${b.cy-b.r*0.3}%`} rx={`${b.r*0.45}`} ry={`${b.r*0.22}`} fill="rgba(255,255,255,0.13)"/>
-          </g>
+        {[{cx:6,cy:20,r:22},{cx:18,cy:50,r:28},{cx:30,cy:15,r:20},{cx:42,cy:65,r:25},{cx:55,cy:25,r:22},{cx:65,cy:55,r:18},{cx:75,cy:18,r:26},{cx:85,cy:45,r:20},{cx:93,cy:22,r:18},{cx:10,cy:78,r:24},{cx:25,cy:88,r:20},{cx:40,cy:80,r:16},{cx:52,cy:90,r:22},{cx:68,cy:82,r:18},{cx:80,cy:75,r:24},{cx:92,cy:70,r:16},{cx:35,cy:40,r:14},{cx:60,cy:42,r:16},{cx:48,cy:10,r:18},{cx:72,cy:38,r:14},{cx:15,cy:35,r:12},{cx:88,cy:90,r:20},{cx:5,cy:92,r:14},{cx:97,cy:50,r:12}].map((b,i) => (
+          <g key={i}><circle cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b1)" stroke="rgba(150,210,255,0.25)" strokeWidth="0.8"/><ellipse cx={`${b.cx-b.r*0.25}%`} cy={`${b.cy-b.r*0.3}%`} rx={`${b.r*0.45}`} ry={`${b.r*0.22}`} fill="rgba(255,255,255,0.13)"/></g>
         ))}
-        {[
-          {cx:12,cy:42,r:10},{cx:22,cy:70,r:8},{cx:38,cy:28,r:11},{cx:50,cy:72,r:9},
-          {cx:62,cy:12,r:10},{cx:70,cy:68,r:7},{cx:80,cy:30,r:8},{cx:90,cy:60,r:10},
-          {cx:95,cy:35,r:7},{cx:45,cy:48,r:9},{cx:58,cy:85,r:8},{cx:28,cy:58,r:7},
-          {cx:75,cy:90,r:9},{cx:8,cy:60,r:6},{cx:33,cy:95,r:8},{cx:82,cy:10,r:7},
-        ].map((b,i) => (
+        {[{cx:12,cy:42,r:10},{cx:22,cy:70,r:8},{cx:38,cy:28,r:11},{cx:50,cy:72,r:9},{cx:62,cy:12,r:10},{cx:70,cy:68,r:7},{cx:80,cy:30,r:8},{cx:90,cy:60,r:10},{cx:95,cy:35,r:7},{cx:45,cy:48,r:9},{cx:58,cy:85,r:8},{cx:28,cy:58,r:7},{cx:75,cy:90,r:9},{cx:8,cy:60,r:6},{cx:33,cy:95,r:8},{cx:82,cy:10,r:7}].map((b,i) => (
           <circle key={i+30} cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b2)" stroke="rgba(150,210,255,0.2)" strokeWidth="0.6"/>
         ))}
       </svg>
-
-      {/* Contenido superpuesto */}
       <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"space-between", minHeight:180, padding:"16px 12px" }}>
-        {/* Logo BurbuPack izquierda con fondo blanco */}
-        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", display:"flex", alignItems:"center", justifyContent:"flex-start", flexShrink:0 }}>
-          <BurbuLogo/>
-        </div>
-
-        {/* Título centro */}
-        <div style={{ textAlign:"center", flex:1, padding:"0 12px" }}>
+        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", flexShrink:0 }}><BurbuLogo/></div>
+        <div style={{ textAlign:"center", flex:1, padding:"0 10px" }}>
           <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>BURBUPACK</p>
           <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(14px,4vw,20px)", fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y Láminas</p>
           <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>COTIZADOR</p>
         </div>
-
-        {/* Logo Empack derecha con fondo blanco */}
-        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", display:"flex", alignItems:"center", justifyContent:"flex-end", flexShrink:0 }}>
-          <EmpackLogo/>
-        </div>
+        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", flexShrink:0 }}><EmpackLogo/></div>
       </div>
     </div>
   </div>
@@ -240,7 +211,7 @@ export default function App() {
   const [clienteNombre, setClienteNombre] = useState("");
   const [savedMsg,      setSavedMsg]      = useState("");
   const [dolarLoading,  setDolarLoading]  = useState(false);
-  const [inp, setInp] = useState({ tipo:"bolsa", burbuja:"Standard", capas:"simple", ancho:"", largo:"", solapa:"", millares:"", cintaRep:false, cintaInv:false, color:false, colorNombre:"" });
+  const [inp, setInp] = useState({ tipo:"bolsa", burbuja:"Standard", capas:"simple", ancho:"", largo:"", solapa:"", millares:"", cintaRep:false, cintaInv:false, color:false, colorOpcion:"", colorNombre:"" });
   const [res, setRes] = useState(null);
 
   const setI = (k,v) => setInp(p => ({ ...p, [k]:v }));
@@ -285,11 +256,9 @@ export default function App() {
     const solapaV = parseFloat(inp.solapa) || 0;
     const solapaStr = inp.tipo === "bolsa" && solapaV > 0 ? ` | Solapa: ${inp.solapa} cm` : "";
     const med = inp.tipo === "bolsa" ? `${inp.ancho}×${inp.largo} cm${solapaStr}` : `${inp.ancho}×${inp.largo} cm`;
-    const colorStr = inp.color && inp.colorNombre ? ` | Color: ${inp.colorNombre}` : inp.color ? " | Color" : "";
+    const colorStr = inp.color ? ` | Color: ${inp.colorOpcion === "otro" ? inp.colorNombre : inp.colorOpcion}` : "";
     const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable"].filter(Boolean).join(", ");
     const extrasStr = extras ? ` | ${extras}` : "";
-    // Punto 4: ▶ en lugar de 💲, Empack Inc SRL antes del vendedor
-    // Punto 4.2: USD en negrita y subrayado, ARS normal
     const msg =
 `*Empack Inc SRL* — ${vend}
 📅 ${today()}${clienteNombre ? `\n👤 ${clienteNombre}` : ""}
@@ -299,7 +268,7 @@ export default function App() {
 *Cantidad:* ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)
 
 ▶ *Por millar:*
-*_U$S ${fmt(res.precioPorMillarUSD)}.-_*
+*_U$S ${fmtDec(res.precioPorMillarUSD,2)}.-_*
 $ ${fmt(res.precioPorMillar)}.-
 
 ▶ *TOTAL:*
@@ -316,11 +285,12 @@ _TC: $${fmt(as.tipoCambio)} ARS/USD_`;
     const tipo  = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
     const solapaV = parseFloat(inp.solapa) || 0;
     const solapaStr = inp.tipo === "bolsa" && solapaV > 0 ? ` | Solapa: ${inp.solapa} cm` : "";
-    const med   = inp.tipo === "bolsa" ? `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm${solapaStr}` : `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm`;
-    const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable", inp.color && `Color: ${inp.colorNombre||"Sí"}`].filter(Boolean).join(", ") || "Ninguno";
+    const med = inp.tipo === "bolsa" ? `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm${solapaStr}` : `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm`;
+    const colorLabel = inp.color ? `Color: ${inp.colorOpcion === "otro" ? inp.colorNombre : inp.colorOpcion}` : "";
+    const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable", colorLabel].filter(Boolean).join(", ") || "Ninguno";
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cotización BurbuPack</title>
 <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:36px;color:#1a1a1a;font-size:14px}
-.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;margin-bottom:24px;border-bottom:3px solid #0099d8;background:#000;padding:16px 20px;border-radius:10px;margin-bottom:24px}
+.header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#000;border-radius:10px;margin-bottom:24px}
 table{width:100%;border-collapse:collapse;margin:14px 0}
 th{background:#e6f6fd;color:#005f8a;text-align:left;padding:9px 14px;font-size:12px;font-weight:700;border-bottom:2px solid #0099d8}
 td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
@@ -330,16 +300,10 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
 .pbox .usd{font-size:20px;font-weight:700;color:#000}
 .pbox .ars{font-size:14px;color:#0099d8;margin-top:2px}
 .total{background:linear-gradient(135deg,#0099d8,#005f8a);color:white;border-radius:12px;padding:22px 24px;margin-top:16px}
-.total .lbl{font-size:12px;opacity:.75;margin-bottom:6px}
-.total .usd{font-size:28px;font-weight:700}
-.total .ars{font-size:18px;opacity:.9;margin-top:4px}
 .footer{margin-top:28px;font-size:11px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:12px}
 </style></head><body>
-<div class="header">
-  <img src="/burbupack.png" style="height:50px"/>
-  <img src="/empack.png" style="height:36px"/>
-</div>
-<p style="font-size:13px;color:#666;margin-bottom:16px">📅 ${today()} &nbsp;|&nbsp; Vendedor: <b>${vend}</b>${clienteNombre ? ` &nbsp;|&nbsp; Cliente: <b>${clienteNombre}</b>` : ""}</p>
+<div class="header"><img src="/burbupack.png" style="height:50px"/><img src="/empack.png" style="height:36px"/></div>
+<p style="font-size:13px;color:#666;margin-bottom:16px">📅 ${today()} | Vendedor: <b>${vend}</b>${clienteNombre ? ` | Cliente: <b>${clienteNombre}</b>` : ""}</p>
 <table><tr><th colspan="2">DETALLE DEL PRODUCTO</th></tr>
 <tr><td>Tipo</td><td><b>${tipo} ${inp.burbuja} — ${res.capasEfectivas}</b></td></tr>
 <tr><td>Medidas</td><td>${med}</td></tr>
@@ -347,13 +311,13 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
 <tr><td>Extras</td><td>${extras}</td></tr>
 </table>
 <div class="price-grid">
-<div class="pbox"><div class="lbl">POR UNIDAD</div><div class="usd">U$S ${fmtDec(res.precioPorUnidadUSD,2)}</div><div class="ars">$ ${fmtDec(res.precioPorUnidad,2)}</div></div>
-<div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">U$S ${fmt(res.precioPorMillarUSD)}.-</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
+<div class="pbox"><div class="lbl">POR UNIDAD</div><div class="usd">U$S ${fmtDec(res.precioPorUnidadUSD,3)}</div><div class="ars">${fmtARS(res.precioPorUnidad)}</div></div>
+<div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">U$S ${fmtDec(res.precioPorMillarUSD,2)}.-</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
 </div>
 <div class="total">
-<div class="lbl">TOTAL — ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
-<div class="usd">U$S ${fmt(res.precioTotalUSD)}.- <span style="font-size:14px;font-weight:400">+ IVA</span></div>
-<div class="ars">$ ${fmt(res.precioTotal)}.- <span style="font-size:13px;font-weight:400">+ IVA</span></div>
+<div style="font-size:12px;opacity:.75;margin-bottom:6px">Total del pedido — ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
+<div style="font-size:28px;font-weight:700">U$S ${fmt(res.precioTotalUSD)}.- <span style="font-size:14px;font-weight:400">+ IVA</span></div>
+<div style="font-size:18px;opacity:.9;margin-top:4px">$ ${fmt(res.precioTotal)}.- <span style="font-size:13px;font-weight:400">+ IVA</span></div>
 <div style="font-size:11px;opacity:.6;margin-top:8px">Tipo de cambio: $${fmt(as.tipoCambio)} ARS/USD</div>
 </div>
 <div class="footer">Cotización generada por Empack Inc SRL / BurbuPack — ${today()}</div>
@@ -361,12 +325,12 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
     const w = window.open("", "_blank"); w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500);
   }
 
-  const iS   = { width:"100%", boxSizing:"border-box", padding:"10px 12px", fontSize:"clamp(14px, 3.5vw, 16px)", borderRadius:8, border:`0.5px solid ${B}40`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
+  const iS   = { width:"100%", boxSizing:"border-box", padding:"10px 12px", fontSize:"clamp(14px, 3.5vw, 16px)", borderRadius:8, border:`1.5px solid ${B}50`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
   const lS   = { fontSize:"clamp(11px, 2.5vw, 13px)", color:BD, marginBottom:4, display:"block", fontWeight:500, letterSpacing:0.3 };
   const crd  = { background:"var(--color-background-primary)", border:`0.5px solid ${B}30`, borderRadius:14, padding:"clamp(10px,3vw,16px)", marginBottom:12, boxShadow:`0 1px 4px rgba(0,153,216,0.07)` };
   const mC   = { background:BG, borderRadius:10, padding:"10px 12px", flex:1, minWidth:0, border:`0.5px solid ${B}25` };
-  const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px, 2.8vw, 14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`0.5px solid ${act?B:B+"50"}`, fontWeight:act?600:400 });
-  const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px, 2.5vw, 13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"transparent", color:act?BDK:"var(--color-text-secondary)", border:`0.5px solid ${act?B:"var(--color-border-tertiary)"}`, fontWeight:act?600:400 });
+  const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px, 2.8vw, 14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
+  const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px, 2.5vw, 13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"white", color:act?BDK:BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
 
   if (loading) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:300, gap:16 }}>
@@ -376,18 +340,12 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
 
   if (screen === "login") return (
     <div style={{ fontFamily:"var(--font-sans)", minHeight:400, background:"var(--color-background-primary)", maxWidth:860, margin:"0 auto" }}>
-      <BubbleHeader>
-        <div style={{ padding:"28px 20px 20px", textAlign:"center" }}>
-          <BurbuLogo/>
-          <div style={{ marginTop:10 }}><EmpackLogo/></div>
-          <p style={{ color:"rgba(255,255,255,0.7)", fontSize:13, marginTop:10, fontWeight:600, letterSpacing:1 }}>BURBUPACK Bolsas COTIZADOR</p>
-        </div>
-      </BubbleHeader>
+      <BubbleHeader/>
       <div style={{ padding:"0 16px" }}>
         {loginStep === "select" && (
           <div style={crd}>
             <p style={{ ...lS, marginBottom:12, fontSize:14 }}>¿Quién sos?</p>
-            <button onClick={() => { setRole("admin"); setLoginStep("pin"); }} style={{ ...iS, marginBottom:8, cursor:"pointer", textAlign:"left", background:`${B}12`, border:`0.5px solid ${B}`, color:BDK, fontWeight:500 }}>🔑 Gerente comercial (Admin)</button>
+            <button onClick={() => { setRole("admin"); setLoginStep("pin"); }} style={{ ...iS, marginBottom:8, cursor:"pointer", textAlign:"left", background:`${B}12`, fontWeight:500 }}>🔑 Gerente comercial (Admin)</button>
             {as.vendedores.map(v => (
               <button key={v.id} onClick={() => { setRole("vendedor"); setVidId(v.id); setLoginStep("pin"); }} style={{ ...iS, marginBottom:8, cursor:"pointer", textAlign:"left", background:"var(--color-background-secondary)" }}>👤 {v.nombre}</button>
             ))}
@@ -396,7 +354,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
         {loginStep === "pin" && (
           <div style={crd}>
             <p style={{ ...lS, marginBottom:12, fontSize:14 }}>PIN — {role === "admin" ? "Admin" : as.vendedores.find(v => v.id === vidId)?.nombre}</p>
-            <input type="password" maxLength={6} value={pinInput} onChange={e => setPinInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} style={{ ...iS, fontSize:24, letterSpacing:8, textAlign:"center", marginBottom:8, border:`1.5px solid ${B}` }} placeholder="••••" autoFocus/>
+            <input type="password" maxLength={6} value={pinInput} onChange={e => setPinInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()} style={{ ...iS, fontSize:24, letterSpacing:8, textAlign:"center", marginBottom:8 }} placeholder="••••" autoFocus/>
             {pinError && <p style={{ color:"#c0392b", fontSize:13, margin:"0 0 8px" }}>{pinError}</p>}
             <div style={{ display:"flex", gap:8 }}>
               <button onClick={() => { setLoginStep("select"); setPinInput(""); setPinError(""); }} style={{ ...iS, cursor:"pointer", flex:1, color:BD }}>← Volver</button>
@@ -415,40 +373,31 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
   const lim    = LIMITES[inp.tipo][inp.burbuja];
   const anchoV = parseFloat(inp.ancho) || 0;
   const largoV = parseFloat(inp.largo) || 0;
+  const solapaV = parseFloat(inp.solapa) || 0;
   const medidaError = anchoV > 0 && (anchoV < lim.anchoMin || anchoV > lim.anchoMax)
     ? `Ancho debe ser entre ${lim.anchoMin} y ${lim.anchoMax} cm para ${inp.burbuja}.`
     : largoV > 0 && (largoV < lim.largoMin || largoV > lim.largoMax)
-    ? `Largo debe ser entre ${lim.largoMin} y ${lim.largoMax} cm para ${inp.burbuja}.`
-    : null;
-  const usaCinta    = inp.cintaRep || inp.cintaInv;
-  const solapaV     = parseFloat(inp.solapa) || 0;
-  const solapaError = usaCinta && inp.tipo === "bolsa"
-    ? solapaV <= 4 ? "Con cinta, la solapa debe ser mayor a 4 cm."
-    : largoV > 0 && solapaV > largoV * 0.5 ? `Con cinta, la solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
-    : null
-    : inp.tipo === "bolsa" && solapaV > 0 && solapaV <= 4 ? "La solapa debe ser mayor a 4 cm."
-    : inp.tipo === "bolsa" && solapaV > 0 && largoV > 0 && solapaV > largoV * 0.5 ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
-    : null;
+    ? `Largo debe ser entre ${lim.largoMin} y ${lim.largoMax} cm para ${inp.burbuja}.` : null;
 
-  // Punto 3: color especial
+  const solapaError = inp.tipo === "bolsa" && solapaV > 0
+    ? solapaV < 3 ? "La solapa debe ser igual o mayor a 3 cm."
+    : largoV > 0 && solapaV > largoV * 0.5 ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
+    : null : null;
+
+  const usaCinta = inp.cintaRep || inp.cintaInv;
   const colorNombreL = (inp.colorNombre || "").trim().toLowerCase();
-  const colorEspecial = inp.color && colorNombreL !== "" && colorNombreL !== "negro" && colorNombreL !== "blanco";
+  const colorEspecial = inp.color && inp.colorOpcion === "otro" && colorNombreL !== "" && colorNombreL !== "negro" && colorNombreL !== "blanco";
   const colorError = colorEspecial && res && !res.error && res.cantMillares > 0
-    ? res.precioTotalUSD < 1000
-      ? `El color "${inp.colorNombre}" requiere pedido mínimo de U$S 1.000. Total actual: U$S ${Math.ceil(res.precioTotalUSD)}.`
-      : null
-    : null;
+    ? res.precioTotalUSD < 1000 ? `El color "${inp.colorNombre}" requiere pedido mínimo de U$S 1.000. Total actual: U$S ${Math.ceil(res.precioTotalUSD)}.` : null : null;
 
   const misCot = role === "admin" ? as.cotizaciones : as.cotizaciones.filter(c => c.vendedor === as.vendedores.find(v => v.id === vidId)?.nombre);
 
   return (
     <div style={{ fontFamily:"var(--font-sans)", background:"var(--color-background-primary)", minHeight:400, maxWidth:860, margin:"0 auto" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px 6px" }}>
-        <BurbuLogo/>
-        <div style={{ textAlign:"right" }}>
-          <div style={{ color:"var(--color-text-primary)", fontSize:12, fontWeight:500 }}>{role === "admin" ? "Admin" : as.vendedores.find(v => v.id === vidId)?.nombre}</div>
-          <button onClick={() => { setScreen("login"); setLoginStep("select"); setPinInput(""); setRole(null); }} style={{ fontSize:11, color:BD, background:"none", border:"none", cursor:"pointer", padding:0 }}>Salir</button>
-        </div>
+      <BubbleHeader/>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"4px 16px 8px" }}>
+        <span style={{ color:BD, fontSize:13, fontWeight:500 }}>{role === "admin" ? "Admin" : as.vendedores.find(v => v.id === vidId)?.nombre}</span>
+        <button onClick={() => { setScreen("login"); setLoginStep("select"); setPinInput(""); setRole(null); }} style={{ fontSize:12, color:BD, background:"none", border:`1px solid ${B}50`, borderRadius:6, cursor:"pointer", padding:"4px 10px" }}>Salir</button>
       </div>
 
       <div style={{ padding:"0 14px" }}>
@@ -465,34 +414,41 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
             </div>
             <label style={lS}>Tipo de burbuja</label>
             <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-              {BURBUJAS.map(b => <button key={b.value} onClick={() => setI("burbuja",b.value)} style={{ ...togBtn(inp.burbuja===b.value), flex:1, fontSize:12, padding:"8px 4px" }}>{b.label}</button>)}
+              {BURBUJAS.map(b => <button key={b.value} onClick={() => setI("burbuja",b.value)} style={{ ...togBtn(inp.burbuja===b.value), flex:1, fontSize:"clamp(10px,2.5vw,12px)", padding:"8px 2px" }}>{b.label}</button>)}
             </div>
             <label style={lS}>Capas</label>
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
               {["simple","triple"].map(c => <button key={c} onClick={() => setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>)}
             </div>
             {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Triple</p>}
-                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-              <div><label style={lS}>Ancho (cm)</label><input type="number" min="0" value={inp.ancho} onChange={e => setI("ancho", Math.max(0, e.target.value))} style={iS} placeholder="0"/></div>
-              <div><label style={lS}>Largo (cm)</label><input type="number" min="0" value={inp.largo} onChange={e => setI("largo", Math.max(0, e.target.value))} style={iS} placeholder="0"/></div>
-              {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input type="number" min="0" value={inp.solapa} onChange={e => setI("solapa", Math.max(0, e.target.value))} style={iS} placeholder="0"/></div>}
-              <div><label style={lS}>Cantidad (millares)</label><input type="number" min="0" step="0.5" value={inp.millares} onChange={e => setI("millares", Math.max(0, e.target.value))} style={iS} placeholder="ej: 2.5"/></div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+              <div><label style={lS}>Ancho (cm)</label><input type="number" min="0" value={inp.ancho} onChange={e => setI("ancho", Math.max(0,e.target.value))} style={iS} placeholder="0"/></div>
+              <div><label style={lS}>Largo (cm)</label><input type="number" min="0" value={inp.largo} onChange={e => setI("largo", Math.max(0,e.target.value))} style={iS} placeholder="0"/></div>
+              {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input type="number" min="0" value={inp.solapa} onChange={e => setI("solapa", Math.max(0,e.target.value))} style={iS} placeholder="≥ 3 cm"/></div>}
+              <div><label style={lS}>Cantidad (millares)</label><input type="number" min="0" step="0.5" value={inp.millares} onChange={e => setI("millares", Math.max(0,e.target.value))} style={iS} placeholder="ej: 2.5"/></div>
             </div>
-            <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 8 : 0 }}>
-              {[["cintaRep","Cinta repegable"],["cintaInv","Cinta inviolable"],["color","Color"]].map(([k,lbl]) => (
-                <label key={k} style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
-                  <input type="checkbox" checked={inp[k]} onChange={e => {
-                    if (k === "cintaRep" && e.target.checked) setInp(p => ({ ...p, cintaRep:true, cintaInv:false }));
-                    else if (k === "cintaInv" && e.target.checked) setInp(p => ({ ...p, cintaInv:true, cintaRep:false }));
-                    else setI(k, e.target.checked);
-                  }}/>{lbl}
-                </label>
-              ))}
+            <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 10 : 0 }}>
+              <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
+                <input type="checkbox" checked={inp.cintaRep} onChange={e => { if(e.target.checked) setInp(p=>({...p,cintaRep:true,cintaInv:false})); else setI("cintaRep",false); }}/>Cinta repegable
+              </label>
+              <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
+                <input type="checkbox" checked={inp.cintaInv} onChange={e => { if(e.target.checked) setInp(p=>({...p,cintaInv:true,cintaRep:false})); else setI("cintaInv",false); }}/>Cinta inviolable
+              </label>
+              <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
+                <input type="checkbox" checked={inp.color} onChange={e => setI("color",e.target.checked)}/>Color
+              </label>
             </div>
             {inp.color && (
               <div style={{ marginTop:8 }}>
-                <label style={lS}>¿Qué color?</label>
-                <input value={inp.colorNombre} onChange={e => setI("colorNombre",e.target.value)} style={iS} placeholder="Ej: azul, rojo, verde..."/>
+                <label style={lS}>Tipo de color</label>
+                <div style={{ display:"flex", gap:8 }}>
+                  {["negras","blancas","otro"].map(op => (
+                    <button key={op} onClick={() => setInp(p=>({...p,colorOpcion:op,colorNombre:""}))} style={{ ...togBtn(inp.colorOpcion===op), flex:1, textTransform:"capitalize" }}>{op==="negras"?"Negras":op==="blancas"?"Blancas":"Otro color"}</button>
+                  ))}
+                </div>
+                {inp.colorOpcion === "otro" && (
+                  <input value={inp.colorNombre} onChange={e => setI("colorNombre",e.target.value)} style={{ ...iS, marginTop:8 }} placeholder="Especificá el color..."/>
+                )}
               </div>
             )}
           </div>
@@ -506,7 +462,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               <div style={{ ...crd, background:BG, border:`0.5px solid ${B}40` }}>
                 <p style={{ fontSize:11, color:BD, margin:"0 0 10px", fontWeight:700, letterSpacing:0.8 }}>FABRICACIÓN</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"],["Metros lineales a fabricar", fmt(res.metrosLinealesJumbo)+" mts"],["Rollos Jumbo necesarios", res.rollosJumboNecesarios+" rollos de 200 mts"]].map(([k,v]) => (
+                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"],["Metros lineales a fabricar",fmt(res.metrosLinealesJumbo)+" mts"],["Rollos Jumbo necesarios",res.rollosJumboNecesarios+" rollos de 200 mts"]].map(([k,v]) => (
                     <div key={k}><p style={{ fontSize:11, color:BD, margin:"0 0 2px" }}>{k}</p><p style={{ fontSize:15, fontWeight:600, margin:0, color:BDK }}>{v}</p></div>
                   ))}
                 </div>
@@ -519,11 +475,11 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por unidad</p>
                   <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorUnidadUSD,3)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmtDec(res.precioPorUnidad,2)}.-</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmtARS(res.precioPorUnidad)}</p>
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
-                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorMillarUSD,1)}.-</p>
+                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorMillarUSD,2)}.-</p>
                   <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorMillar)}.-</p>
                 </div>
               </div>
@@ -550,9 +506,9 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               <input value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} style={{ ...iS, marginBottom:8 }} placeholder="Nombre del cliente"/>
               {savedMsg && <p style={{ color:"#27ae60", fontSize:13, margin:"0 0 8px", fontWeight:500 }}>{savedMsg}</p>}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-                <button onClick={guardar}  style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`0.5px solid ${B}`, background:BG, cursor:"pointer", color:BD, fontWeight:600 }}>💾 Guardar</button>
+                <button onClick={guardar}  style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`1.5px solid ${B}`, background:BG, cursor:"pointer", color:BD, fontWeight:600 }}>💾 Guardar</button>
                 <button onClick={whatsapp} style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:"none", background:"#25D366", cursor:"pointer", color:"white", fontWeight:600 }}>📲 WhatsApp</button>
-                <button onClick={pdf}      style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`0.5px solid ${B}`, background:BG, cursor:"pointer", color:BD, fontWeight:600 }}>🖨 PDF</button>
+                <button onClick={pdf}      style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`1.5px solid ${B}`, background:BG, cursor:"pointer", color:BD, fontWeight:600 }}>🖨 PDF</button>
               </div>
             </div>
           </>)}
@@ -607,11 +563,10 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>TIPO DE CAMBIO</p>
               <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
                 <div style={{ flex:1 }}><label style={lS}>$ ARS por USD</label><input type="number" value={as.tipoCambio} onChange={e => setAs(p => ({...p,tipoCambio:parseFloat(e.target.value)||0}))} style={iS}/></div>
-                <button onClick={fetchDolar} style={{ padding:"9px 12px", fontSize:13, borderRadius:8, border:`1px solid ${B}`, background:B, color:"white", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}>{dolarLoading?"...":"🔄 Actualizar"}</button>
+                <button onClick={fetchDolar} style={{ padding:"10px 12px", fontSize:13, borderRadius:8, border:`1px solid ${B}`, background:B, color:"white", cursor:"pointer", fontWeight:600, whiteSpace:"nowrap" }}>{dolarLoading?"...":"🔄 Actualizar"}</button>
               </div>
               <p style={{ fontSize:11, color:BD, margin:"6px 0 0" }}>Dólar billete vendedor — Banco Nación</p>
             </div>
-
             <div style={crd}>
               <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>PRECIO POLIETILENO (USD/kg)</p>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -628,7 +583,6 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 ))}
               </div>
             </div>
-
             <div style={crd}>
               <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>COSTO ROLLOS DE CINTA (USD)</p>
               <div style={{ marginBottom:12 }}>
@@ -648,7 +602,6 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                 {as.costoRolloInviolable > 0 && <p style={{ fontSize:11, color:B, margin:"4px 0 0" }}>→ U$S {(as.costoRolloInviolable/(METROS_INV*100)*3).toFixed(6)} por cm lineal</p>}
               </div>
             </div>
-
             <div style={crd}>
               <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>MÍNIMO DE FACTURACIÓN</p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
@@ -667,9 +620,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
                   </div>
                 </div>
               </div>
-              <p style={{ fontSize:11, color:BD, margin:"8px 0 0" }}>Si el total es menor al mínimo, se prorratea el costo de calibración entre las unidades.</p>
             </div>
-
             <div style={crd}>
               <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>RENTABILIDAD POR RANGO (millares)</p>
               {RANGOS.map((r,i) => (
@@ -688,7 +639,7 @@ td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
               {as.vendedores.map((v,i) => (
                 <div key={v.id} style={{ display:"flex", gap:8, marginBottom:10 }}>
                   <input value={v.nombre} onChange={e => setAs(p => { const vs=[...p.vendedores]; vs[i]={...vs[i],nombre:e.target.value}; return {...p,vendedores:vs}; })} style={{ ...iS, flex:2 }}/>
-                  <button onClick={() => setAs(p => ({...p,vendedores:p.vendedores.filter((_,j)=>j!==i)}))} style={{ padding:"8px 10px", fontSize:13, borderRadius:8, border:"0.5px solid #e74c3c", color:"#c0392b", background:"none", cursor:"pointer" }}>✕</button>
+                  <button onClick={() => setAs(p => ({...p,vendedores:p.vendedores.filter((_,j)=>j!==i)}))} style={{ padding:"8px 10px", fontSize:13, borderRadius:8, border:"1.5px solid #e74c3c", color:"#c0392b", background:"none", cursor:"pointer" }}>✕</button>
                 </div>
               ))}
               <button onClick={() => setAs(p => ({...p,vendedores:[...p.vendedores,{id:Date.now(),nombre:"Nuevo vendedor",pin:"0000"}]}))} style={{ ...iS, cursor:"pointer", color:"white", border:"none", background:B, marginTop:4, fontWeight:600 }}>+ Agregar vendedor</button>
