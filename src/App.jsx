@@ -144,8 +144,8 @@ function calcular(inp, adm) {
   };
 }
 
-const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(44px, 8vw, 88px)", display:"block" }}/>;
-const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(32px, 6vw, 64px)", display:"block" }}/>;
+const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(57px, 10.4vw, 114px)", display:"block" }}/>;
+const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(42px, 7.8vw, 83px)", display:"block" }}/>;
 
 const BubbleHeader = () => (
   <div style={{ marginBottom:14 }}>
@@ -318,17 +318,17 @@ tr:nth-child(even) td{background:#f7fbff}
 .pbox .lbl{font-size:10px;color:#005f8a;font-weight:800;letter-spacing:1px;margin-bottom:8px}
 .pbox .usd{font-size:22px;font-weight:800;color:#003d5c}
 .pbox .ars{font-size:15px;color:#0099d8;margin-top:4px;font-weight:600}
-.total-box{background:linear-gradient(135deg,#003d5c,#0099d8);border-radius:14px;padding:24px 28px;color:white}
-.total-box .lbl{font-size:12px;opacity:.8;margin-bottom:8px;font-weight:600;letter-spacing:.5px}
-.total-box .usd{font-size:32px;font-weight:800;margin-bottom:4px}
-.total-box .ars{font-size:20px;font-weight:600;opacity:.9}
-.total-box .tc{font-size:11px;opacity:.6;margin-top:10px}
+.total-box{background:linear-gradient(135deg,#003d5c,#0077b6);border-radius:14px;padding:24px 28px;color:white;box-shadow:0 8px 32px rgba(0,100,180,0.35);border:3px solid #00c3ff}
+.total-box .lbl{font-size:13px;opacity:.85;margin-bottom:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.total-box .usd{font-size:36px;font-weight:900;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.total-box .ars{font-size:22px;font-weight:700;opacity:.92}
+.total-box .tc{font-size:12px;opacity:.65;margin-top:12px}
 .footer{padding:16px 32px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eef2f7;background:#fafbfc}
 </style></head><body><div class="page">
 <div class="header">
   <div class="header-logos">
-    <div class="header-logo"><img src="/burbupack.png"/></div>
-    <div class="header-logo"><img src="/empack.png"/></div>
+    <div class="header-logo"><img src="/burbupack.png" style="height:58px"/></div>
+    <div class="header-logo"><img src="/empack.png" style="height:47px"/></div>
   </div>
 </div>
 <div class="title-section">
@@ -519,7 +519,7 @@ tr:nth-child(even) td{background:#f7fbff}
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
-                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorMillarUSD,2)}.-</p>
+                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {res.precioPorMillarUSD % 1 === 0 ? fmt(res.precioPorMillarUSD)+".-" : fmtDec(res.precioPorMillarUSD,2)}</p>
                   <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorMillar)}.-</p>
                 </div>
               </div>
