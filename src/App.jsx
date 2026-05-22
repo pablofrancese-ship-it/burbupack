@@ -167,9 +167,9 @@ const BubbleHeader = () => (
       <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"space-between", minHeight:180, padding:"16px 12px" }}>
         <div style={{ background:"white", borderRadius:12, padding:"8px 10px", flexShrink:0 }}><BurbuLogo/></div>
         <div style={{ textAlign:"center", flex:1, padding:"0 10px" }}>
-          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>BURBUPACK</p>
-          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(14px,4vw,20px)", fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y Láminas</p>
-          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>COTIZADOR</p>
+          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Burbupack</p>
+          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(14px,4vw,20px)", fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y láminas</p>
+          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Cotizador</p>
         </div>
         <div style={{ background:"white", borderRadius:12, padding:"8px 10px", flexShrink:0 }}><EmpackLogo/></div>
       </div>
@@ -251,84 +251,124 @@ export default function App() {
 
   function whatsapp() {
     if (!res || res.error) return;
+    const nombre = clienteNombre.trim() || window.prompt("Nombre del cliente (opcional):") || "";
     const vend = role === "admin" ? "Admin" : as.vendedores.find(x => x.id === vidId)?.nombre || "";
     const tipo = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
     const solapaV = parseFloat(inp.solapa) || 0;
     const solapaStr = inp.tipo === "bolsa" && solapaV > 0 ? ` | Solapa: ${inp.solapa} cm` : "";
-    const med = inp.tipo === "bolsa" ? `${inp.ancho}×${inp.largo} cm${solapaStr}` : `${inp.ancho}×${inp.largo} cm`;
+    const med = inp.tipo === "bolsa" ? `${inp.ancho}x${inp.largo} cm${solapaStr}` : `${inp.ancho}x${inp.largo} cm`;
     const colorStr = inp.color ? ` | Color: ${inp.colorOpcion === "otro" ? inp.colorNombre : inp.colorOpcion}` : "";
     const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable"].filter(Boolean).join(", ");
     const extrasStr = extras ? ` | ${extras}` : "";
     const msg =
-`*Empack Inc SRL* — ${vend}
-📅 ${today()}${clienteNombre ? `\n👤 ${clienteNombre}` : ""}
+`*BurbuPack - cotizacion*
+
+*Empack Inc SRL* - ${vend}
+Fecha: ${today()}${nombre ? `\nCliente: ${nombre}` : ""}
 
 *Producto:* ${tipo} ${inp.burbuja} ${res.capasEfectivas}
 *Medidas:* ${med}${extrasStr}${colorStr}
 *Cantidad:* ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)
 
-▶ *Por millar:*
-*_U$S ${fmtDec(res.precioPorMillarUSD,2)}.-_*
+*Por millar:*
+*U$S ${fmtDec(res.precioPorMillarUSD,2)}.-*
 $ ${fmt(res.precioPorMillar)}.-
 
-▶ *TOTAL:*
-*_U$S ${fmt(res.precioTotalUSD)}.- + IVA_*
+*TOTAL:*
+*U$S ${fmt(res.precioTotalUSD)}.- + IVA*
 $ ${fmt(res.precioTotal)}.- + IVA
 
-_TC: $${fmt(as.tipoCambio)} ARS/USD_`;
+TC: ${fmt(as.tipoCambio)} ARS/USD`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
   }
 
   function pdf() {
     if (!res || res.error) return;
-    const vend  = role === "admin" ? "Administrador" : as.vendedores.find(v => v.id === vidId)?.nombre || "";
-    const tipo  = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
+    const vend = role === "admin" ? "Administrador" : as.vendedores.find(v => v.id === vidId)?.nombre || "";
+    const tipo = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
+    const tipoLabel = inp.tipo === "bolsa" ? "Bolsas" : "Láminas";
     const solapaV = parseFloat(inp.solapa) || 0;
     const solapaStr = inp.tipo === "bolsa" && solapaV > 0 ? ` | Solapa: ${inp.solapa} cm` : "";
     const med = inp.tipo === "bolsa" ? `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm${solapaStr}` : `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm`;
     const colorLabel = inp.color ? `Color: ${inp.colorOpcion === "otro" ? inp.colorNombre : inp.colorOpcion}` : "";
     const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable", colorLabel].filter(Boolean).join(", ") || "Ninguno";
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cotización BurbuPack</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:36px;color:#1a1a1a;font-size:14px}
-.header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#000;border-radius:10px;margin-bottom:24px}
-table{width:100%;border-collapse:collapse;margin:14px 0}
-th{background:#e6f6fd;color:#005f8a;text-align:left;padding:9px 14px;font-size:12px;font-weight:700;border-bottom:2px solid #0099d8}
-td{padding:8px 14px;font-size:13px;border-bottom:1px solid #f0f0f0}
-.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
-.pbox{border:1.5px solid #0099d8;border-radius:10px;padding:12px 14px}
-.pbox .lbl{font-size:11px;color:#005f8a;font-weight:700;margin-bottom:6px}
-.pbox .usd{font-size:20px;font-weight:700;color:#000}
-.pbox .ars{font-size:14px;color:#0099d8;margin-top:2px}
-.total{background:linear-gradient(135deg,#0099d8,#005f8a);color:white;border-radius:12px;padding:22px 24px;margin-top:16px}
-.footer{margin-top:28px;font-size:11px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:12px}
-</style></head><body>
-<div class="header"><img src="/burbupack.png" style="height:50px"/><img src="/empack.png" style="height:36px"/></div>
-<p style="font-size:13px;color:#666;margin-bottom:16px">📅 ${today()} | Vendedor: <b>${vend}</b>${clienteNombre ? ` | Cliente: <b>${clienteNombre}</b>` : ""}</p>
-<table><tr><th colspan="2">DETALLE DEL PRODUCTO</th></tr>
+    const clientePDF = clienteNombre.trim() || window.prompt("Nombre del cliente para el PDF:") || "";
+    const filename = `BurbuPack-${tipoLabel}-${inp.ancho}x${inp.largo}cm-${today().replace(/\//g,"-")}${clientePDF ? `-${clientePDF}` : ""}`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${filename}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;padding:0;color:#1a1a2e}
+.page{background:white;max-width:750px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,0.12)}
+.header{background:linear-gradient(135deg,#003d5c,#0099d8);padding:24px 32px;display:flex;justify-content:space-between;align-items:center}
+.header-logos{display:flex;gap:20px;align-items:center}
+.header-logo{background:white;border-radius:10px;padding:8px 12px;display:flex;align-items:center}
+.header-logo img{height:45px}
+.title-section{background:#e6f6fd;padding:16px 32px;border-bottom:3px solid #0099d8}
+.title-main{font-size:22px;font-weight:800;color:#003d5c;letter-spacing:1px}
+.title-sub{font-size:13px;color:#005f8a;margin-top:2px}
+.meta{padding:12px 32px;background:#fafbfc;border-bottom:1px solid #e0e8f0;display:flex;gap:24px;font-size:13px;color:#555}
+.meta b{color:#003d5c}
+.body{padding:24px 32px}
+table{width:100%;border-collapse:collapse;margin-bottom:20px;border-radius:8px;overflow:hidden}
+th{background:#0099d8;color:white;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:.5px}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid #eef2f7}
+tr:nth-child(even) td{background:#f7fbff}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.pbox{border:2px solid #0099d8;border-radius:12px;padding:16px;background:white}
+.pbox .lbl{font-size:10px;color:#005f8a;font-weight:800;letter-spacing:1px;margin-bottom:8px}
+.pbox .usd{font-size:22px;font-weight:800;color:#003d5c}
+.pbox .ars{font-size:15px;color:#0099d8;margin-top:4px;font-weight:600}
+.total-box{background:linear-gradient(135deg,#003d5c,#0099d8);border-radius:14px;padding:24px 28px;color:white}
+.total-box .lbl{font-size:12px;opacity:.8;margin-bottom:8px;font-weight:600;letter-spacing:.5px}
+.total-box .usd{font-size:32px;font-weight:800;margin-bottom:4px}
+.total-box .ars{font-size:20px;font-weight:600;opacity:.9}
+.total-box .tc{font-size:11px;opacity:.6;margin-top:10px}
+.footer{padding:16px 32px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eef2f7;background:#fafbfc}
+</style></head><body><div class="page">
+<div class="header">
+  <div class="header-logos">
+    <div class="header-logo"><img src="/burbupack.png"/></div>
+    <div class="header-logo"><img src="/empack.png"/></div>
+  </div>
+</div>
+<div class="title-section">
+  <div class="title-main">BurbuPack ${tipoLabel} Cotización</div>
+  <div class="title-sub">Vendedor: ${vend}${clientePDF ? ` &nbsp;|&nbsp; Cliente: <b>${clientePDF}</b>` : ""}</div>
+</div>
+<div class="meta">
+  <span>📅 <b>${today()}</b></span>
+  ${clientePDF ? `<span>👤 <b>${clientePDF}</b></span>` : ""}
+</div>
+<div class="body">
+<table><tr><th colspan="2">Detalle del producto</th></tr>
 <tr><td>Tipo</td><td><b>${tipo} ${inp.burbuja} — ${res.capasEfectivas}</b></td></tr>
 <tr><td>Medidas</td><td>${med}</td></tr>
-<tr><td>Cantidad</td><td>${res.cantMillares} millares (${res.cantUnidades.toLocaleString("es-AR")} unidades)</td></tr>
+<tr><td>Cantidad</td><td><b>${res.cantMillares} millares</b> (${res.cantUnidades.toLocaleString("es-AR")} unidades)</td></tr>
 <tr><td>Extras</td><td>${extras}</td></tr>
 </table>
 <div class="price-grid">
 <div class="pbox"><div class="lbl">POR UNIDAD</div><div class="usd">U$S ${fmtDec(res.precioPorUnidadUSD,3)}</div><div class="ars">${fmtARS(res.precioPorUnidad)}</div></div>
 <div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">U$S ${fmtDec(res.precioPorMillarUSD,2)}.-</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
 </div>
-<div class="total">
-<div style="font-size:12px;opacity:.75;margin-bottom:6px">Total del pedido — ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
-<div style="font-size:28px;font-weight:700">U$S ${fmt(res.precioTotalUSD)}.- <span style="font-size:14px;font-weight:400">+ IVA</span></div>
-<div style="font-size:18px;opacity:.9;margin-top:4px">$ ${fmt(res.precioTotal)}.- <span style="font-size:13px;font-weight:400">+ IVA</span></div>
-<div style="font-size:11px;opacity:.6;margin-top:8px">Tipo de cambio: $${fmt(as.tipoCambio)} ARS/USD</div>
+<div class="total-box">
+<div class="lbl">TOTAL DEL PEDIDO &nbsp;—&nbsp; ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
+<div class="usd">U$S ${fmt(res.precioTotalUSD)}.- <span style="font-size:16px;font-weight:400">+ IVA</span></div>
+<div class="ars">$ ${fmt(res.precioTotal)}.- <span style="font-size:14px;font-weight:400">+ IVA</span></div>
+<div class="tc">Tipo de cambio: ${fmt(as.tipoCambio)} ARS/USD</div>
 </div>
-<div class="footer">Cotización generada por Empack Inc SRL / BurbuPack — ${today()}</div>
-</body></html>`;
-    const w = window.open("", "_blank"); w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500);
+</div>
+<div class="footer">Cotización generada por Empack Inc SRL / BurbuPack &nbsp;—&nbsp; ${today()}</div>
+</div></body></html>`;
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.document.title = filename; w.print(); }, 500);
   }
 
   const iS   = { width:"100%", boxSizing:"border-box", padding:"10px 12px", fontSize:"clamp(14px, 3.5vw, 16px)", borderRadius:8, border:`1.5px solid ${B}50`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
   const lS   = { fontSize:"clamp(11px, 2.5vw, 13px)", color:BD, marginBottom:4, display:"block", fontWeight:500, letterSpacing:0.3 };
   const crd  = { background:"var(--color-background-primary)", border:`0.5px solid ${B}30`, borderRadius:14, padding:"clamp(10px,3vw,16px)", marginBottom:12, boxShadow:`0 1px 4px rgba(0,153,216,0.07)` };
-  const mC   = { background:BG, borderRadius:10, padding:"10px 12px", flex:1, minWidth:0, border:`0.5px solid ${B}25` };
+  const mC   = { background:"white", borderRadius:10, padding:"10px 12px", flex:1, minWidth:0, border:`1.5px solid ${B}` };
   const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px, 2.8vw, 14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
   const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px, 2.5vw, 13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"white", color:act?BDK:BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
 
