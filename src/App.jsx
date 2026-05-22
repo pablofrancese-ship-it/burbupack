@@ -101,7 +101,10 @@ function calcular(inp, adm) {
   const factorCapas = capasEfectivas === "triple" ? 1.5 : 1;
   const factorColor = color ? 1.25 : 1;
   const costoM2ars  = (PESO_M2[burbuja]||0.0777) * adm.precioPE * adm.tipoCambio * factorTipo * factorCapas * factorColor;
-  const m2Unidad    = (anchoNum / 100) * (largoNum / 100);
+  // m² real consumido: ancho del jumbo requerido × largo
+  const m2Unidad = tipo === "bolsa"
+    ? (anchoReq / 100) * (largoNum / 100)
+    : (anchoNum / 100) * (largoNum / 100);
   const costoMaterial = costoM2ars * m2Unidad;
 
   const m2Desperdicio = desperdicioCm <= 20 && cantUnidadesInt > 0
