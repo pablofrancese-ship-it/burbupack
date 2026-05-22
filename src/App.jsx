@@ -1,4 +1,4 @@
-// BurbuPack v8
+// BurbuPack v9
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -28,7 +28,7 @@ const BURBUJAS = [
   { value:"Burbujón",     label:"Burbujón" },
 ];
 const METROS_REP = 1000, METROS_INV = 500;
-const B = "#0099d8", BD = "#005f8a", BG = "#e6f6fd", BDK = "#003d5c";
+const B = "#0099d8", BD = "#005f8a", BDK = "#003d5c";
 
 const INIT = {
   adminPin: "0000",
@@ -55,10 +55,12 @@ const ceil   = n => Math.ceil(n);
 const fmt    = n => new Intl.NumberFormat("es-AR").format(ceil(n));
 const fmtDec = (n, d=2) => new Intl.NumberFormat("es-AR", { minimumFractionDigits:d, maximumFractionDigits:d }).format(n);
 const fmtARS = n => {
-  const v = n % 1 === 0 ? Math.ceil(n) : n;
-  return v % 1 === 0
-    ? new Intl.NumberFormat("es-AR").format(v) + ".-"
-    : new Intl.NumberFormat("es-AR", { minimumFractionDigits:2, maximumFractionDigits:2 }).format(v);
+  const v = ceil(n);
+  return "$ " + new Intl.NumberFormat("es-AR").format(v) + ".-";
+};
+const fmtMillarUSD = n => {
+  const hasDecimals = (n % 1) !== 0;
+  return "U$S " + (hasDecimals ? fmtDec(n,2) : fmt(n) + ".-");
 };
 const today  = () => new Date().toLocaleDateString("es-AR");
 
@@ -72,7 +74,8 @@ function getRangoIdx(m) {
 
 function calcular(inp, adm) {
   const { tipo, burbuja, capas, ancho, largo, solapa, millares, cintaRep, cintaInv, color, colorOpcion } = inp;
-  const anchoMaquina = burbuja === "Standard" ? 192 : 144;
+  // Standard siempre 200cm, Micro/Burbujón 144cm
+  const anchoMaquina = burbuja === "Standard" ? 200 : 144;
   const anchoNum  = parseFloat(ancho)  || 0;
   const largoNum  = parseFloat(largo)  || 0;
   const solapaNum = parseFloat(solapa) || 0;
@@ -86,7 +89,6 @@ function calcular(inp, adm) {
   const cantMillares = parseFloat(millares) || 0;
   const cantUnidadesInt = Math.round(cantMillares * 1000);
 
-  // Color: negras/blancas fuerzan triple + 25%; otro solo +25%
   const colorNegBlanc = color && (colorOpcion === "negras" || colorOpcion === "blancas");
   const capasEfectivas = (cintaRep || cintaInv || colorNegBlanc) ? "triple" : capas;
 
@@ -98,7 +100,6 @@ function calcular(inp, adm) {
   const m2Unidad    = (anchoNum / 100) * (largoNum / 100);
   const costoMaterial = costoM2ars * m2Unidad;
 
-  // Desperdicio prorrateado solo si <= 20cm
   const m2Desperdicio = desperdicioCm <= 20 && cantUnidadesInt > 0
     ? ((desperdicioCm / 100) * (largoNum / 100)) / fajas : 0;
   const costoDesperdicio = costoM2ars * m2Desperdicio;
@@ -123,7 +124,6 @@ function calcular(inp, adm) {
   const costoTotal      = costoPorUnidad  * cantUnidadesInt;
   const utilidad        = precioTotal - costoTotal;
 
-  // Metros lineales: ancho bolsa/lamina en metros × unidades
   const metrosLinealesJumbo = (anchoNum / 100) * cantUnidadesInt;
   const rollosJumboNecesarios = Math.ceil(metrosLinealesJumbo / 200);
 
@@ -144,34 +144,35 @@ function calcular(inp, adm) {
   };
 }
 
-const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(57px, 10.4vw, 114px)", display:"block" }}/>;
-const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(42px, 7.8vw, 83px)", display:"block" }}/>;
+// Logos -30% vs v8 (88→62, 64→45)
+const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(40px,7vw,62px)", display:"block" }}/>;
+const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(29px,5vw,45px)", display:"block" }}/>;
 
 const BubbleHeader = () => (
   <div style={{ marginBottom:14 }}>
-    <div style={{ position:"relative", overflow:"hidden", borderRadius:16, margin:"0 0", minHeight:180 }}>
+    <div style={{ position:"relative", overflow:"hidden", borderRadius:16, minHeight:160 }}>
       <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
         <defs>
           <radialGradient id="bg" cx="50%" cy="50%" r="70%"><stop offset="0%" stopColor="#1a3a4a"/><stop offset="100%" stopColor="#060f14"/></radialGradient>
-          <radialGradient id="b1" cx="35%" cy="30%" r="65%"><stop offset="0%" stopColor="rgba(255,255,255,0.18)"/><stop offset="60%" stopColor="rgba(180,220,255,0.06)"/><stop offset="100%" stopColor="rgba(100,180,255,0.0)"/></radialGradient>
-          <radialGradient id="b2" cx="30%" cy="25%" r="65%"><stop offset="0%" stopColor="rgba(255,255,255,0.22)"/><stop offset="55%" stopColor="rgba(180,220,255,0.07)"/><stop offset="100%" stopColor="rgba(100,180,255,0.0)"/></radialGradient>
+          <radialGradient id="b1" cx="35%" cy="30%" r="65%"><stop offset="0%" stopColor="rgba(255,255,255,0.18)"/><stop offset="60%" stopColor="rgba(180,220,255,0.06)"/><stop offset="100%" stopColor="rgba(100,180,255,0)"/></radialGradient>
+          <radialGradient id="b2" cx="30%" cy="25%" r="65%"><stop offset="0%" stopColor="rgba(255,255,255,0.22)"/><stop offset="55%" stopColor="rgba(180,220,255,0.07)"/><stop offset="100%" stopColor="rgba(100,180,255,0)"/></radialGradient>
         </defs>
         <rect width="100%" height="100%" fill="url(#bg)"/>
-        {[{cx:6,cy:20,r:22},{cx:18,cy:50,r:28},{cx:30,cy:15,r:20},{cx:42,cy:65,r:25},{cx:55,cy:25,r:22},{cx:65,cy:55,r:18},{cx:75,cy:18,r:26},{cx:85,cy:45,r:20},{cx:93,cy:22,r:18},{cx:10,cy:78,r:24},{cx:25,cy:88,r:20},{cx:40,cy:80,r:16},{cx:52,cy:90,r:22},{cx:68,cy:82,r:18},{cx:80,cy:75,r:24},{cx:92,cy:70,r:16},{cx:35,cy:40,r:14},{cx:60,cy:42,r:16},{cx:48,cy:10,r:18},{cx:72,cy:38,r:14},{cx:15,cy:35,r:12},{cx:88,cy:90,r:20},{cx:5,cy:92,r:14},{cx:97,cy:50,r:12}].map((b,i) => (
+        {[{cx:6,cy:20,r:22},{cx:18,cy:50,r:28},{cx:30,cy:15,r:20},{cx:42,cy:65,r:25},{cx:55,cy:25,r:22},{cx:65,cy:55,r:18},{cx:75,cy:18,r:26},{cx:85,cy:45,r:20},{cx:93,cy:22,r:18},{cx:10,cy:78,r:24},{cx:25,cy:88,r:20},{cx:40,cy:80,r:16},{cx:52,cy:90,r:22},{cx:68,cy:82,r:18},{cx:80,cy:75,r:24},{cx:92,cy:70,r:16},{cx:35,cy:40,r:14},{cx:60,cy:42,r:16},{cx:48,cy:10,r:18},{cx:72,cy:38,r:14},{cx:15,cy:35,r:12},{cx:88,cy:90,r:20},{cx:5,cy:92,r:14},{cx:97,cy:50,r:12}].map((b,i)=>(
           <g key={i}><circle cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b1)" stroke="rgba(150,210,255,0.25)" strokeWidth="0.8"/><ellipse cx={`${b.cx-b.r*0.25}%`} cy={`${b.cy-b.r*0.3}%`} rx={`${b.r*0.45}`} ry={`${b.r*0.22}`} fill="rgba(255,255,255,0.13)"/></g>
         ))}
-        {[{cx:12,cy:42,r:10},{cx:22,cy:70,r:8},{cx:38,cy:28,r:11},{cx:50,cy:72,r:9},{cx:62,cy:12,r:10},{cx:70,cy:68,r:7},{cx:80,cy:30,r:8},{cx:90,cy:60,r:10},{cx:95,cy:35,r:7},{cx:45,cy:48,r:9},{cx:58,cy:85,r:8},{cx:28,cy:58,r:7},{cx:75,cy:90,r:9},{cx:8,cy:60,r:6},{cx:33,cy:95,r:8},{cx:82,cy:10,r:7}].map((b,i) => (
+        {[{cx:12,cy:42,r:10},{cx:22,cy:70,r:8},{cx:38,cy:28,r:11},{cx:50,cy:72,r:9},{cx:62,cy:12,r:10},{cx:70,cy:68,r:7},{cx:80,cy:30,r:8},{cx:90,cy:60,r:10},{cx:95,cy:35,r:7},{cx:45,cy:48,r:9},{cx:58,cy:85,r:8},{cx:28,cy:58,r:7},{cx:75,cy:90,r:9},{cx:8,cy:60,r:6},{cx:33,cy:95,r:8},{cx:82,cy:10,r:7}].map((b,i)=>(
           <circle key={i+30} cx={`${b.cx}%`} cy={`${b.cy}%`} r={`${b.r}`} fill="url(#b2)" stroke="rgba(150,210,255,0.2)" strokeWidth="0.6"/>
         ))}
       </svg>
-      <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"space-between", minHeight:180, padding:"16px 12px" }}>
-        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", flexShrink:0 }}><BurbuLogo/></div>
-        <div style={{ textAlign:"center", flex:1, padding:"0 10px" }}>
-          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Burbupack</p>
-          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(14px,4vw,20px)", fontWeight:500, margin:"4px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y láminas</p>
-          <p style={{ color:"white", fontSize:"clamp(18px,5vw,26px)", fontWeight:900, letterSpacing:3, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Cotizador</p>
+      <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"space-between", minHeight:160, padding:"12px" }}>
+        <div style={{ background:"white", borderRadius:10, padding:"6px 8px", flexShrink:0 }}><BurbuLogo/></div>
+        <div style={{ textAlign:"center", flex:1, padding:"0 8px" }}>
+          <p style={{ color:"white", fontSize:"clamp(16px,4.5vw,24px)", fontWeight:900, letterSpacing:2, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Burbupack</p>
+          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(12px,3.5vw,18px)", fontWeight:500, margin:"3px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y láminas</p>
+          <p style={{ color:"white", fontSize:"clamp(16px,4.5vw,24px)", fontWeight:900, letterSpacing:2, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Cotizador</p>
         </div>
-        <div style={{ background:"white", borderRadius:12, padding:"8px 10px", flexShrink:0 }}><EmpackLogo/></div>
+        <div style={{ background:"white", borderRadius:10, padding:"6px 8px", flexShrink:0 }}><EmpackLogo/></div>
       </div>
     </div>
   </div>
@@ -191,13 +192,11 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  const setAs = fn => {
-    setAsRaw(prev => {
-      const next = typeof fn === "function" ? fn(prev) : fn;
-      setDoc(doc(db, "config", "global"), next);
-      return next;
-    });
-  };
+  const setAs = fn => setAsRaw(prev => {
+    const next = typeof fn === "function" ? fn(prev) : fn;
+    setDoc(doc(db, "config", "global"), next);
+    return next;
+  });
 
   const [screen,        setScreen]        = useState("login");
   const [role,          setRole]          = useState(null);
@@ -251,7 +250,11 @@ export default function App() {
 
   function whatsapp() {
     if (!res || res.error) return;
-    const nombre = clienteNombre.trim() || window.prompt("Nombre del cliente (opcional):") || "";
+    let nombre = clienteNombre.trim();
+    if (!nombre) {
+      nombre = window.prompt("Nombre del cliente (obligatorio):") || "";
+      if (!nombre.trim()) { alert("El nombre del cliente es obligatorio para enviar por WhatsApp."); return; }
+    }
     const vend = role === "admin" ? "Admin" : as.vendedores.find(x => x.id === vidId)?.nombre || "";
     const tipo = inp.tipo === "bolsa" ? "Bolsa" : "Lámina";
     const solapaV = parseFloat(inp.solapa) || 0;
@@ -264,21 +267,22 @@ export default function App() {
 `*BurbuPack - cotizacion*
 
 *Empack Inc SRL* - ${vend}
-Fecha: ${today()}${nombre ? `\nCliente: ${nombre}` : ""}
+Fecha: ${today()}
+Cliente: *${nombre}*
 
-*Producto:* ${tipo} ${inp.burbuja} ${res.capasEfectivas}
-*Medidas:* ${med}${extrasStr}${colorStr}
-*Cantidad:* ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)
+*Producto: ${tipo} ${inp.burbuja} ${res.capasEfectivas}*
+*Medidas: ${med}${extrasStr}${colorStr}*
+*Cantidad: ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)*
 
 *Por millar:*
-*U$S ${fmtDec(res.precioPorMillarUSD,2)}.-*
+*U$S ${fmtDec(res.precioPorMillarUSD,2)}${res.precioPorMillarUSD % 1 === 0 ? ".-" : ""}*
 $ ${fmt(res.precioPorMillar)}.-
 
 *TOTAL:*
 *U$S ${fmt(res.precioTotalUSD)}.- + IVA*
 $ ${fmt(res.precioTotal)}.- + IVA
 
-TC: ${fmt(as.tipoCambio)} ARS/USD`;
+TC: $ ${fmt(as.tipoCambio)} ARS/USD`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
   }
 
@@ -292,85 +296,100 @@ TC: ${fmt(as.tipoCambio)} ARS/USD`;
     const med = inp.tipo === "bolsa" ? `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm${solapaStr}` : `Ancho: ${inp.ancho} cm | Largo: ${inp.largo} cm`;
     const colorLabel = inp.color ? `Color: ${inp.colorOpcion === "otro" ? inp.colorNombre : inp.colorOpcion}` : "";
     const extras = [inp.cintaRep && "Cinta repegable", inp.cintaInv && "Cinta inviolable", colorLabel].filter(Boolean).join(", ") || "Ninguno";
-    const clientePDF = clienteNombre.trim() || window.prompt("Nombre del cliente para el PDF:") || "";
-    const filename = `BurbuPack-${tipoLabel}-${inp.ancho}x${inp.largo}cm-${today().replace(/\//g,"-")}${clientePDF ? `-${clientePDF}` : ""}`;
+    let clientePDF = clienteNombre.trim();
+    if (!clientePDF) {
+      clientePDF = window.prompt("Nombre del cliente (obligatorio para el PDF):") || "";
+      if (!clientePDF.trim()) { alert("El nombre del cliente es obligatorio para generar el PDF."); return; }
+    }
+    const millarUSDpdf = res.precioPorMillarUSD % 1 === 0
+      ? "U$S " + fmt(res.precioPorMillarUSD) + ".-"
+      : "U$S " + fmtDec(res.precioPorMillarUSD, 2);
+    const filename = `BurbuPack-${tipoLabel}-${inp.ancho}x${inp.largo}cm-${today().replace(/\//g,"-")}-${clientePDF.replace(/\s/g,"_")}`;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${filename}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;padding:0;color:#1a1a2e}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1a1a2e}
 .page{background:white;max-width:750px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,0.12)}
-.header{background:linear-gradient(135deg,#003d5c,#0099d8);padding:24px 32px;display:flex;justify-content:space-between;align-items:center}
-.header-logos{display:flex;gap:20px;align-items:center}
-.header-logo{background:white;border-radius:10px;padding:8px 12px;display:flex;align-items:center}
-.header-logo img{height:45px}
-.title-section{background:#e6f6fd;padding:16px 32px;border-bottom:3px solid #0099d8}
-.title-main{font-size:22px;font-weight:800;color:#003d5c;letter-spacing:1px}
-.title-sub{font-size:13px;color:#005f8a;margin-top:2px}
-.meta{padding:12px 32px;background:#fafbfc;border-bottom:1px solid #e0e8f0;display:flex;gap:24px;font-size:13px;color:#555}
-.meta b{color:#003d5c}
-.body{padding:24px 32px}
-table{width:100%;border-collapse:collapse;margin-bottom:20px;border-radius:8px;overflow:hidden}
-th{background:#0099d8;color:white;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:.5px}
-td{padding:10px 14px;font-size:13px;border-bottom:1px solid #eef2f7}
+.header{background:linear-gradient(135deg,#003d5c,#0099d8);padding:20px 28px;display:flex;justify-content:space-between;align-items:center}
+.hlogo{background:white;border-radius:10px;padding:7px 10px;display:flex;align-items:center}
+.hlogo img{height:52px}
+.title-section{background:#e6f6fd;padding:14px 28px;border-bottom:3px solid #0099d8}
+.title-main{font-size:20px;font-weight:800;color:#003d5c;letter-spacing:1px}
+.title-sub{font-size:14px;color:#005f8a;margin-top:3px;font-weight:600}
+.meta{padding:10px 28px;background:#fafbfc;border-bottom:1px solid #e0e8f0;font-size:15px;color:#333;display:flex;gap:24px}
+.body{padding:20px 28px}
+table{width:100%;border-collapse:collapse;margin-bottom:18px}
+th{background:#0099d8;color:white;text-align:left;padding:10px 14px;font-size:13px;font-weight:700;letter-spacing:.4px}
+td{padding:11px 14px;font-size:15px;border-bottom:1px solid #eef2f7}
+td:first-child{font-weight:600;color:#005f8a;font-size:13px;width:30%}
 tr:nth-child(even) td{background:#f7fbff}
-.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-.pbox{border:2px solid #0099d8;border-radius:12px;padding:16px;background:white}
-.pbox .lbl{font-size:10px;color:#005f8a;font-weight:800;letter-spacing:1px;margin-bottom:8px}
-.pbox .usd{font-size:22px;font-weight:800;color:#003d5c}
-.pbox .ars{font-size:15px;color:#0099d8;margin-top:4px;font-weight:600}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+.pbox{border:2px solid #0099d8;border-radius:12px;padding:14px 16px;background:white}
+.pbox .lbl{font-size:10px;color:#005f8a;font-weight:800;letter-spacing:1px;margin-bottom:7px}
+.pbox .usd{font-size:17px;font-weight:800;color:#003d5c}
+.pbox .ars{font-size:14px;color:#0099d8;margin-top:4px;font-weight:600}
 .total-box{background:linear-gradient(135deg,#003d5c,#0077b6);border-radius:14px;padding:24px 28px;color:white;box-shadow:0 8px 32px rgba(0,100,180,0.35);border:3px solid #00c3ff}
 .total-box .lbl{font-size:13px;opacity:.85;margin-bottom:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
-.total-box .usd{font-size:36px;font-weight:900;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.total-box .usd{font-size:34px;font-weight:900;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .total-box .ars{font-size:22px;font-weight:700;opacity:.92}
 .total-box .tc{font-size:12px;opacity:.65;margin-top:12px}
-.footer{padding:16px 32px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eef2f7;background:#fafbfc}
+.footer{padding:14px 28px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eef2f7;background:#fafbfc}
 </style></head><body><div class="page">
 <div class="header">
-  <div class="header-logos">
-    <div class="header-logo"><img src="/burbupack.png" style="height:58px"/></div>
-    <div class="header-logo"><img src="/empack.png" style="height:47px"/></div>
-  </div>
+  <div class="hlogo"><img src="/burbupack.png"/></div>
+  <div class="hlogo"><img src="/empack.png" style="height:40px"/></div>
 </div>
 <div class="title-section">
-  <div class="title-main">BurbuPack ${tipoLabel} Cotización</div>
-  <div class="title-sub">Vendedor: ${vend}${clientePDF ? ` &nbsp;|&nbsp; Cliente: <b>${clientePDF}</b>` : ""}</div>
+  <div class="title-main">BurbuPack ${tipoLabel} Cotizacion</div>
+  <div class="title-sub">Vendedor: ${vend}</div>
 </div>
 <div class="meta">
-  <span>📅 <b>${today()}</b></span>
-  ${clientePDF ? `<span>👤 <b>${clientePDF}</b></span>` : ""}
+  <span>Fecha: <b>${today()}</b></span>
+  <span>Cliente: <b>${clientePDF}</b></span>
 </div>
 <div class="body">
 <table><tr><th colspan="2">Detalle del producto</th></tr>
 <tr><td>Tipo</td><td><b>${tipo} ${inp.burbuja} — ${res.capasEfectivas}</b></td></tr>
-<tr><td>Medidas</td><td>${med}</td></tr>
+<tr><td>Medidas</td><td><b>${med}</b></td></tr>
 <tr><td>Cantidad</td><td><b>${res.cantMillares} millares</b> (${res.cantUnidades.toLocaleString("es-AR")} unidades)</td></tr>
 <tr><td>Extras</td><td>${extras}</td></tr>
 </table>
 <div class="price-grid">
-<div class="pbox"><div class="lbl">POR UNIDAD</div><div class="usd">U$S ${fmtDec(res.precioPorUnidadUSD,3)}</div><div class="ars">${fmtARS(res.precioPorUnidad)}</div></div>
-<div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">U$S ${fmtDec(res.precioPorMillarUSD,2)}.-</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
+<div class="pbox"><div class="lbl">POR UNIDAD</div><div class="usd">U$S ${fmtDec(res.precioPorUnidadUSD,3)}</div><div class="ars">$ ${fmt(res.precioPorUnidad)}.-</div></div>
+<div class="pbox"><div class="lbl">POR MILLAR</div><div class="usd">${millarUSDpdf}</div><div class="ars">$ ${fmt(res.precioPorMillar)}.-</div></div>
 </div>
 <div class="total-box">
-<div class="lbl">TOTAL DEL PEDIDO &nbsp;—&nbsp; ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
+<div class="lbl">Total del pedido — ${res.cantMillares} mil (${res.cantUnidades.toLocaleString("es-AR")} u.)</div>
 <div class="usd">U$S ${fmt(res.precioTotalUSD)}.- <span style="font-size:16px;font-weight:400">+ IVA</span></div>
 <div class="ars">$ ${fmt(res.precioTotal)}.- <span style="font-size:14px;font-weight:400">+ IVA</span></div>
-<div class="tc">Tipo de cambio: ${fmt(as.tipoCambio)} ARS/USD</div>
+<div class="tc">Tipo de cambio: $ ${fmt(as.tipoCambio)} ARS/USD</div>
 </div>
 </div>
-<div class="footer">Cotización generada por Empack Inc SRL / BurbuPack &nbsp;—&nbsp; ${today()}</div>
+<div class="footer">Cotizacion generada por Empack Inc SRL / BurbuPack — ${today()}</div>
 </div></body></html>`;
     const w = window.open("", "_blank");
-    w.document.write(html);
-    w.document.close();
+    w.document.write(html); w.document.close();
     setTimeout(() => { w.document.title = filename; w.print(); }, 500);
   }
 
-  const iS   = { width:"100%", boxSizing:"border-box", padding:"10px 12px", fontSize:"clamp(14px, 3.5vw, 16px)", borderRadius:8, border:`1.5px solid ${B}50`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
-  const lS   = { fontSize:"clamp(11px, 2.5vw, 13px)", color:BD, marginBottom:4, display:"block", fontWeight:500, letterSpacing:0.3 };
+  const iS   = { width:"100%", boxSizing:"border-box", padding:"10px 12px", fontSize:"clamp(14px,3.5vw,16px)", borderRadius:8, border:`1.5px solid ${B}50`, background:"var(--color-background-primary)", color:"var(--color-text-primary)" };
+  const lS   = { fontSize:"clamp(11px,2.5vw,13px)", color:BD, marginBottom:4, display:"block", fontWeight:500, letterSpacing:0.3 };
   const crd  = { background:"var(--color-background-primary)", border:`0.5px solid ${B}30`, borderRadius:14, padding:"clamp(10px,3vw,16px)", marginBottom:12, boxShadow:`0 1px 4px rgba(0,153,216,0.07)` };
   const mC   = { background:"white", borderRadius:10, padding:"10px 12px", flex:1, minWidth:0, border:`1.5px solid ${B}` };
-  const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px, 2.8vw, 14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
-  const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px, 2.5vw, 13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"white", color:act?BDK:BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
+  const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px,2.8vw,14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
+  const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px,2.5vw,13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"white", color:act?BDK:BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
+
+  // Input numérico sin cero a la izquierda
+  const numInput = (k) => ({
+    ...iS,
+    value: inp[k],
+    onChange: e => {
+      const v = e.target.value;
+      setI(k, v === "" ? "" : v.replace(/^0+(\d)/, "$1"));
+    },
+    onFocus: e => { if (inp[k] === "0" || inp[k] === 0) setI(k, ""); },
+    type:"number", min:"0", placeholder:"0"
+  });
 
   if (loading) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:300, gap:16 }}>
@@ -461,12 +480,15 @@ tr:nth-child(even) td{background:#f7fbff}
               {["simple","triple"].map(c => <button key={c} onClick={() => setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>)}
             </div>
             {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Triple</p>}
+
+            {/* Medidas: ancho, largo, cantidad, solapa */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-              <div><label style={lS}>Ancho (cm)</label><input type="number" min="0" value={inp.ancho} onChange={e => setI("ancho", Math.max(0,e.target.value))} style={iS} placeholder="0"/></div>
-              <div><label style={lS}>Largo (cm)</label><input type="number" min="0" value={inp.largo} onChange={e => setI("largo", Math.max(0,e.target.value))} style={iS} placeholder="0"/></div>
-              {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input type="number" min="0" value={inp.solapa} onChange={e => setI("solapa", Math.max(0,e.target.value))} style={iS} placeholder="≥ 3 cm"/></div>}
-              <div><label style={lS}>Cantidad (millares)</label><input type="number" min="0" step="0.5" value={inp.millares} onChange={e => setI("millares", Math.max(0,e.target.value))} style={iS} placeholder="ej: 2.5"/></div>
+              <div><label style={lS}>Ancho (cm)</label><input {...numInput("ancho")} style={iS}/></div>
+              <div><label style={lS}>Largo (cm)</label><input {...numInput("largo")} style={iS}/></div>
+              <div><label style={lS}>Cantidad (millares)</label><input {...numInput("millares")} step="0.5" style={iS} placeholder="ej: 2.5"/></div>
+              {inp.tipo==="bolsa" && <div><label style={lS}>Solapa (cm)</label><input {...numInput("solapa")} style={iS} placeholder="≥ 3 cm"/></div>}
             </div>
+
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 10 : 0 }}>
               <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
                 <input type="checkbox" checked={inp.cintaRep} onChange={e => { if(e.target.checked) setInp(p=>({...p,cintaRep:true,cintaInv:false})); else setI("cintaRep",false); }}/>Cinta repegable
@@ -483,7 +505,7 @@ tr:nth-child(even) td{background:#f7fbff}
                 <label style={lS}>Tipo de color</label>
                 <div style={{ display:"flex", gap:8 }}>
                   {["negras","blancas","otro"].map(op => (
-                    <button key={op} onClick={() => setInp(p=>({...p,colorOpcion:op,colorNombre:""}))} style={{ ...togBtn(inp.colorOpcion===op), flex:1, textTransform:"capitalize" }}>{op==="negras"?"Negras":op==="blancas"?"Blancas":"Otro color"}</button>
+                    <button key={op} onClick={() => setInp(p=>({...p,colorOpcion:op,colorNombre:""}))} style={{ ...togBtn(inp.colorOpcion===op), flex:1 }}>{op==="negras"?"Negras":op==="blancas"?"Blancas":"Otro"}</button>
                   ))}
                 </div>
                 {inp.colorOpcion === "otro" && (
@@ -499,11 +521,18 @@ tr:nth-child(even) td{background:#f7fbff}
 
           {res && !res.error && res.cantMillares > 0 && !solapaError && !medidaError && !colorError && (<>
             {role === "admin" && (
-              <div style={{ ...crd, background:BG, border:`0.5px solid ${B}40` }}>
+              <div style={{ background:"#e6f6fd", border:`0.5px solid ${B}40`, borderRadius:14, padding:14, marginBottom:12 }}>
                 <p style={{ fontSize:11, color:BD, margin:"0 0 10px", fontWeight:700, letterSpacing:0.8 }}>FABRICACIÓN</p>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                  {[["Ancho Jumbo Requerido",res.anchoReq+" cm"],["Ancho útil máquina",res.anchoMaquina+" cm"],["Rollos Jumbo por bajada",res.fajas],["Desperdicio",res.desperdicioCm+" cm ("+res.pctDesp+"%)"],["Metros lineales a fabricar",fmt(res.metrosLinealesJumbo)+" mts"],["Rollos Jumbo necesarios",res.rollosJumboNecesarios+" rollos de 200 mts"]].map(([k,v]) => (
-                    <div key={k}><p style={{ fontSize:11, color:BD, margin:"0 0 2px" }}>{k}</p><p style={{ fontSize:15, fontWeight:600, margin:0, color:BDK }}>{v}</p></div>
+                  {[
+                    ["Ancho Jumbo Requerido", res.anchoReq+" cm"],
+                    ["Ancho útil máquina", res.anchoMaquina+" cm"],
+                    ["Rollos Jumbo por bajada", res.fajas],
+                    ["Desperdicio", res.desperdicioCm+" cm ("+res.pctDesp+"%)"],
+                    ["Metros lineales a fabricar", fmt(res.metrosLinealesJumbo)+" mts"],
+                    ["Rollos Jumbo necesarios", `${res.rollosJumboNecesarios} rollos · ${res.anchoReq} cm · 200 mts c/u`],
+                  ].map(([k,v]) => (
+                    <div key={k}><p style={{ fontSize:11, color:BD, margin:"0 0 2px" }}>{k}</p><p style={{ fontSize:14, fontWeight:600, margin:0, color:BDK }}>{v}</p></div>
                   ))}
                 </div>
               </div>
@@ -515,12 +544,12 @@ tr:nth-child(even) td{background:#f7fbff}
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por unidad</p>
                   <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorUnidadUSD,3)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmtARS(res.precioPorUnidad)}</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>$ {fmtDec(res.precioPorUnidad,2)}.-</p>
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
-                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {res.precioPorMillarUSD % 1 === 0 ? fmt(res.precioPorMillarUSD)+".-" : fmtDec(res.precioPorMillarUSD,2)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>${fmt(res.precioPorMillar)}.-</p>
+                  <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>{fmtMillarUSD(res.precioPorMillarUSD)}</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>$ {fmt(res.precioPorMillar)}.-</p>
                 </div>
               </div>
 
@@ -528,15 +557,15 @@ tr:nth-child(even) td{background:#f7fbff}
                 <p style={{ fontSize:14, color:"rgba(255,255,255,0.75)", margin:"0 0 6px", fontWeight:600 }}>Total del pedido — {res.cantMillares} mil ({res.cantUnidades.toLocaleString("es-AR")} u.)</p>
                 <p style={{ fontSize:34, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:19, fontWeight:400 }}>+ IVA</span></p>
                 <p style={{ fontSize:23, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:15, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
-                <p style={{ fontSize:14, color:"rgba(255,255,255,0.55)", margin:"8px 0 0" }}>TC: ${fmt(as.tipoCambio)} ARS/USD</p>
+                <p style={{ fontSize:14, color:"rgba(255,255,255,0.55)", margin:"8px 0 0" }}>TC: $ {fmt(as.tipoCambio)} ARS/USD</p>
               </div>
 
               {role === "admin" && (
                 <div style={{ background:"#1a1a2e", borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
                   <p style={{ fontSize:11, color:"rgba(255,255,255,0.6)", margin:"0 0 10px", fontWeight:700, letterSpacing:0.8 }}>RENTABILIDAD DEL PEDIDO</p>
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-                    <div><p style={{ fontSize:11, color:"rgba(255,255,255,0.5)", margin:"0 0 3px" }}>Costo Total</p><p style={{ fontSize:13, fontWeight:700, color:"white", margin:"0 0 2px" }}>${fmt(res.costoTotal)}</p><p style={{ fontSize:11, color:"#7ecbf5", margin:0 }}>U$S {fmt(res.costoTotalUSD)}</p></div>
-                    <div><p style={{ fontSize:11, color:"rgba(255,255,255,0.5)", margin:"0 0 3px" }}>Utilidad</p><p style={{ fontSize:13, fontWeight:700, color:"#4cd964", margin:"0 0 2px" }}>${fmt(res.utilidad)}</p><p style={{ fontSize:11, color:"#7ecbf5", margin:0 }}>U$S {fmt(res.utilidadUSD)}</p></div>
+                    <div><p style={{ fontSize:11, color:"rgba(255,255,255,0.5)", margin:"0 0 3px" }}>Costo Total</p><p style={{ fontSize:13, fontWeight:700, color:"white", margin:"0 0 2px" }}>$ {fmt(res.costoTotal)}</p><p style={{ fontSize:11, color:"#7ecbf5", margin:0 }}>U$S {fmt(res.costoTotalUSD)}</p></div>
+                    <div><p style={{ fontSize:11, color:"rgba(255,255,255,0.5)", margin:"0 0 3px" }}>Utilidad</p><p style={{ fontSize:13, fontWeight:700, color:"#4cd964", margin:"0 0 2px" }}>$ {fmt(res.utilidad)}</p><p style={{ fontSize:11, color:"#7ecbf5", margin:0 }}>U$S {fmt(res.utilidadUSD)}</p></div>
                     <div><p style={{ fontSize:11, color:"rgba(255,255,255,0.5)", margin:"0 0 3px" }}>Rentabilidad</p><p style={{ fontSize:22, fontWeight:700, color:"#4cd964", margin:0 }}>{res.rentReal}%</p></div>
                   </div>
                 </div>
@@ -546,9 +575,9 @@ tr:nth-child(even) td{background:#f7fbff}
               <input value={clienteNombre} onChange={e => setClienteNombre(e.target.value)} style={{ ...iS, marginBottom:8 }} placeholder="Nombre del cliente"/>
               {savedMsg && <p style={{ color:"#27ae60", fontSize:13, margin:"0 0 8px", fontWeight:500 }}>{savedMsg}</p>}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-                <button onClick={guardar}  style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`1.5px solid ${B}`, background:BG, cursor:"pointer", color:BD, fontWeight:600 }}>💾 Guardar</button>
+                <button onClick={guardar}  style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`1.5px solid ${B}`, background:"#e6f6fd", cursor:"pointer", color:BD, fontWeight:600 }}>💾 Guardar</button>
                 <button onClick={whatsapp} style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:"none", background:"#25D366", cursor:"pointer", color:"white", fontWeight:600 }}>📲 WhatsApp</button>
-                <button onClick={pdf}      style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`1.5px solid ${B}`, background:BG, cursor:"pointer", color:BD, fontWeight:600 }}>🖨 PDF</button>
+                <button onClick={pdf}      style={{ padding:"10px 4px", fontSize:12, borderRadius:9, border:`1.5px solid ${B}`, background:"#e6f6fd", cursor:"pointer", color:BD, fontWeight:600 }}>🖨 PDF</button>
               </div>
             </div>
           </>)}
@@ -584,7 +613,7 @@ tr:nth-child(even) td{background:#f7fbff}
                   <p style={{ fontSize:13, color:"var(--color-text-secondary)", margin:"0 0 8px" }}>{c.inp.tipo==="bolsa"?"Bolsa":"Lámina"} {c.inp.burbuja} {c.res.capasEfectivas||c.inp.capas} · {c.res.cantMillares} mil u.</p>
                   <div style={{ display:"flex", gap:8 }}>
                     <div style={mC}><p style={{ fontSize:11, color:BD, margin:"0 0 2px", fontWeight:600 }}>USD</p><p style={{ fontSize:15, fontWeight:700, margin:0, color:BDK }}>U$S {fmt(c.res.precioTotalUSD)}</p></div>
-                    <div style={mC}><p style={{ fontSize:11, color:BD, margin:"0 0 2px", fontWeight:600 }}>ARS</p><p style={{ fontSize:15, fontWeight:700, margin:0, color:BDK }}>${fmt(c.res.precioTotal)}</p></div>
+                    <div style={mC}><p style={{ fontSize:11, color:BD, margin:"0 0 2px", fontWeight:600 }}>ARS</p><p style={{ fontSize:15, fontWeight:700, margin:0, color:BDK }}>$ {fmt(c.res.precioTotal)}</p></div>
                   </div>
                 </div>
               ))}
@@ -615,7 +644,7 @@ tr:nth-child(even) td{background:#f7fbff}
               </div>
               <div style={{ marginTop:10, display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
                 {[["Standard","0.0777"],["Microburbuja","0.092"],["Burbujón","0.092"]].map(([b,kg]) => (
-                  <div key={b} style={{ background:BG, borderRadius:8, padding:"8px 10px", border:`0.5px solid ${B}25` }}>
+                  <div key={b} style={{ background:"#e6f6fd", borderRadius:8, padding:"8px 10px", border:`0.5px solid ${B}25` }}>
                     <p style={{ fontSize:11, color:BD, margin:"0 0 2px", fontWeight:600 }}>{b}</p>
                     <p style={{ fontSize:12, color:BDK, margin:0 }}>{kg} kg/m²</p>
                     <p style={{ fontSize:12, color:B, margin:0, fontWeight:600 }}>U$S {((parseFloat(kg)||0)*as.precioPE).toFixed(4)}/m²</p>
@@ -645,20 +674,8 @@ tr:nth-child(even) td{background:#f7fbff}
             <div style={crd}>
               <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>MÍNIMO DE FACTURACIÓN</p>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                <div>
-                  <label style={lS}>Mínimo pedido (USD)</label>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span>
-                    <input type="number" step="10" value={as.minimoUSD||300} onChange={e => setAs(p => ({...p,minimoUSD:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/>
-                  </div>
-                </div>
-                <div>
-                  <label style={lS}>Costo calibración (USD)</label>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span>
-                    <input type="number" step="10" value={as.costoCalibacion||100} onChange={e => setAs(p => ({...p,costoCalibacion:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/>
-                  </div>
-                </div>
+                <div><label style={lS}>Mínimo pedido (USD)</label><div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span><input type="number" step="10" value={as.minimoUSD||300} onChange={e => setAs(p => ({...p,minimoUSD:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/></div></div>
+                <div><label style={lS}>Costo calibración (USD)</label><div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span><input type="number" step="10" value={as.costoCalibacion||100} onChange={e => setAs(p => ({...p,costoCalibacion:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/></div></div>
               </div>
             </div>
             <div style={crd}>
