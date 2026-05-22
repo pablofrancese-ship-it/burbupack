@@ -62,6 +62,10 @@ const fmtMillarUSD = n => {
   const hasDecimals = (n % 1) !== 0;
   return "U$S " + (hasDecimals ? fmtDec(n,2) : fmt(n) + ".-");
 };
+const fmtImporte = (n, prefix="$") => {
+  const hasDecimals = (n % 1) !== 0;
+  return prefix + " " + (hasDecimals ? fmtDec(n,2) : fmt(n) + ".-");
+};
 const today  = () => new Date().toLocaleDateString("es-AR");
 
 function getRangoIdx(m) {
@@ -81,7 +85,7 @@ function calcular(inp, adm) {
   const solapaNum = parseFloat(solapa) || 0;
   const anchoReqRaw = tipo === "bolsa" ? largoNum * 2 + solapaNum : anchoNum;
   if (anchoReqRaw <= 0) return null;
-  const anchoReq = Math.ceil(anchoReqRaw / 10) * 10;
+  const anchoReq = anchoReqRaw; // sin redondeo a múltiplos de 10
   const fajas = Math.floor(anchoMaquina / anchoReq);
   if (fajas <= 0) return { anchoReq, anchoMaquina, fajas:0, error:true };
   const desperdicioCm = Math.round(anchoMaquina - fajas * anchoReq);
@@ -530,7 +534,7 @@ tr:nth-child(even) td{background:#f7fbff}
                     ["Rollos Jumbo por bajada", res.fajas],
                     ["Desperdicio", res.desperdicioCm+" cm ("+res.pctDesp+"%)"],
                     ["Metros lineales a fabricar", fmt(res.metrosLinealesJumbo)+" mts"],
-                    ["Rollos Jumbo necesarios", `${res.rollosJumboNecesarios} rollos · ${res.anchoReq} cm · 200 mts c/u`],
+                    ["Rollos Jumbo necesarios", `${res.rollosJumboNecesarios} de ${res.anchoReq} cm por 200 mts c/u`],
                   ].map(([k,v]) => (
                     <div key={k}><p style={{ fontSize:11, color:BD, margin:"0 0 2px" }}>{k}</p><p style={{ fontSize:14, fontWeight:600, margin:0, color:BDK }}>{v}</p></div>
                   ))}
@@ -544,19 +548,19 @@ tr:nth-child(even) td{background:#f7fbff}
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por unidad</p>
                   <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>U$S {fmtDec(res.precioPorUnidadUSD,3)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>$ {fmtDec(res.precioPorUnidad,2)}.-</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>{fmtImporte(res.precioPorUnidad)}</p>
                 </div>
                 <div style={mC}>
                   <p style={{ fontSize:11, color:BD, margin:"0 0 3px", fontWeight:600 }}>Por millar</p>
                   <p style={{ fontSize:17, fontWeight:700, margin:"0 0 1px", color:"#000" }}>{fmtMillarUSD(res.precioPorMillarUSD)}</p>
-                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>$ {fmt(res.precioPorMillar)}.-</p>
+                  <p style={{ fontSize:14, color:B, margin:0, fontWeight:600 }}>{fmtImporte(res.precioPorMillar)}</p>
                 </div>
               </div>
 
               <div style={{ background:`linear-gradient(135deg,${B},${BD})`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
                 <p style={{ fontSize:14, color:"rgba(255,255,255,0.75)", margin:"0 0 6px", fontWeight:600 }}>Total del pedido — {res.cantMillares} mil ({res.cantUnidades.toLocaleString("es-AR")} u.)</p>
                 <p style={{ fontSize:34, fontWeight:700, margin:"0 0 2px", color:"white" }}>U$S {fmt(res.precioTotalUSD)}.- <span style={{ fontSize:19, fontWeight:400 }}>+ IVA</span></p>
-                <p style={{ fontSize:23, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>$ {fmt(res.precioTotal)}.- <span style={{ fontSize:15, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
+                <p style={{ fontSize:23, fontWeight:600, color:"rgba(255,255,255,0.9)", margin:0 }}>{fmtImporte(res.precioTotal)} <span style={{ fontSize:15, fontWeight:400, opacity:0.8 }}>+ IVA</span></p>
                 <p style={{ fontSize:14, color:"rgba(255,255,255,0.55)", margin:"8px 0 0" }}>TC: $ {fmt(as.tipoCambio)} ARS/USD</p>
               </div>
 
