@@ -446,15 +446,14 @@ tr:nth-child(even) td{background:#f7fbff}
     : largoV > 0 && (largoV < lim.largoMin || largoV > lim.largoMax)
     ? `Largo debe ser entre ${lim.largoMin} y ${lim.largoMax} cm para ${inp.burbuja}.` : null;
 
-  const solapaError = 
-  inp.tipo === "bolsa"
-    ? (inp.cintaRep || inp.cintaInv) && (solapaV <= 0 || inp.solapa.trim() === "")
+  const solapaError = inp.tipo === "bolsa"
+    ? usaCinta && (solapaV <= 0 || inp.solapa.trim() === "")
       ? "La solapa es obligatoria cuando hay cinta."
-      : solapaV > 0 && solapaV < 3
-      ? "La solapa debe ser igual o mayor a 3 cm."
-      : solapaV > 0 && largoV > 0 && solapaV > largoV * 0.5
-      ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
-      : null
+      : solapaV > 0
+        ? solapaV < 3 ? "La solapa debe ser igual o mayor a 3 cm."
+          : largoV > 0 && solapaV > largoV * 0.5 ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
+          : null
+        : null
     : null;
 
   const usaCinta = inp.cintaRep || inp.cintaInv;
