@@ -483,12 +483,11 @@ tr:nth-child(even) td{background:#f7fbff}
             <div style={{ display:"flex", gap:8, marginBottom:10 }}>
               {BURBUJAS.map(b => <button key={b.value} onClick={() => setI("burbuja",b.value)} style={{ ...togBtn(inp.burbuja===b.value), flex:1, fontSize:"clamp(10px,2.5vw,12px)", padding:"8px 2px" }}>{b.label}</button>)}
             </div>
-            <label style={lS}>Capas</label>
+<label style={lS}>Capas {usaCinta && "(→ Triple automático)"}</label>
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
               {["simple","triple"].map(c => <button key={c} onClick={() => setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>)}
             </div>
             {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Triple</p>}
-
             {/* Medidas: ancho, largo, cantidad, solapa */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
               <div><label style={lS}>Ancho (cm)</label><input {...numInput("ancho")} style={iS}/></div>
@@ -498,6 +497,11 @@ tr:nth-child(even) td{background:#f7fbff}
             </div>
 
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 10 : 0 }}>
+              {usaCinta && (
+                <div style={{ width:"100%", background:"#fff8e1", border:`0.5px solid #f39c12`, borderRadius:10, padding:"10px 14px", marginBottom:10 }}>
+                  <p style={{ color:"#b7770d", fontSize:13, margin:0, fontWeight:600 }}>⚠️ Con cinta se aplica automáticamente <strong>Triple</strong></p>
+                </div>
+              )}
               <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
                 <input type="checkbox" checked={inp.cintaRep} onChange={e => { if(e.target.checked) setInp(p=>({...p,cintaRep:true,cintaInv:false})); else setI("cintaRep",false); }}/>Cinta repegable
               </label>
@@ -508,6 +512,7 @@ tr:nth-child(even) td{background:#f7fbff}
                 <input type="checkbox" checked={inp.color} onChange={e => setI("color",e.target.checked)}/>Color
               </label>
             </div>
+            
             {inp.color && (
               <div style={{ marginTop:8 }}>
                 <label style={lS}>Tipo de color</label>
