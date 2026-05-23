@@ -155,7 +155,8 @@ const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"cl
 
 const BubbleHeader = () => (
   <div style={{ marginBottom:14 }}>
-    <div style={{ position:"relative", overflow:"hidden", borderRadius:16, minHeight:160 }}>
+          <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+      <div style={{ position:"relative", overflow:"hidden", borderRadius:16, minHeight:160 }}>
       <svg style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }} xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
         <defs>
           <radialGradient id="bg" cx="50%" cy="50%" r="70%"><stop offset="0%" stopColor="#1a3a4a"/><stop offset="100%" stopColor="#060f14"/></radialGradient>
@@ -173,9 +174,9 @@ const BubbleHeader = () => (
       <div style={{ position:"relative", zIndex:1, display:"flex", alignItems:"center", justifyContent:"space-between", minHeight:160, padding:"12px" }}>
         <div style={{ background:"white", borderRadius:10, padding:"6px 8px", flexShrink:0 }}><BurbuLogo/></div>
         <div style={{ textAlign:"center", flex:1, padding:"0 8px" }}>
-          <p style={{ color:"white", fontSize:"clamp(16px,4.5vw,24px)", fontWeight:900, letterSpacing:2, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Burbupack</p>
-          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(12px,3.5vw,18px)", fontWeight:500, margin:"3px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Bolsas y láminas</p>
-          <p style={{ color:"white", fontSize:"clamp(16px,4.5vw,24px)", fontWeight:900, letterSpacing:2, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)" }}>Cotizador</p>
+          <p style={{ color:"white", fontSize:"clamp(16px,4.5vw,24px)", fontWeight:900, letterSpacing:2, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)", fontFamily:"Nunito, sans-serif" }}>Burbupack</p>
+          <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"clamp(12px,3.5vw,18px)", fontWeight:600, margin:"3px 0", lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)", fontFamily:"Nunito, sans-serif" }}>Bolsas y láminas</p>
+          <p style={{ color:"white", fontSize:"clamp(16px,4.5vw,24px)", fontWeight:900, letterSpacing:2, margin:0, lineHeight:1.2, textShadow:"0 1px 4px rgba(0,0,0,0.7)", fontFamily:"Nunito, sans-serif" }}>Cotizador</p>
         </div>
         <div style={{ background:"white", borderRadius:10, padding:"6px 8px", flexShrink:0 }}><EmpackLogo/></div>
       </div>
