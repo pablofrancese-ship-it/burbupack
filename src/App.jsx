@@ -102,7 +102,9 @@ function calcular(inp, adm) {
   const factorColor = color ? 1.25 : 1;
   const costoM2ars  = (PESO_M2[burbuja]||0.0777) * adm.precioPE * adm.tipoCambio * factorTipo * factorCapas * factorColor;
   // m² real consumido por unidad: área física de la bolsa o lámina
-  const m2Unidad = (anchoNum / 100) * (largoNum / 100);
+  // Para bolsas, la solapa se dobla hacia adentro, sumando la mitad al largo
+  const largoReal = tipo === "bolsa" ? (largoNum + solapaNum / 2) : largoNum;
+  const m2Unidad = (anchoNum / 100) * (largoReal / 100);
   const costoMaterial = costoM2ars * m2Unidad;
 
   const m2Desperdicio = desperdicioCm <= 20 && cantUnidadesInt > 0
