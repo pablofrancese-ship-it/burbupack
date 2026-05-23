@@ -1,4 +1,4 @@
-// BurbuPack v9.3
+// BurbuPack v11 - Rangos editables con validaciones
 import { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
@@ -15,13 +15,6 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
-const RANGOS = [
-  { min:0,  max:2,        label:"1 a 2 mil" },
-  { min:2,  max:4,        label:"2 a 4 mil" },
-  { min:4,  max:7,        label:"4 a 7 mil" },
-  { min:7,  max:10,       label:"7 a 10 mil" },
-  { min:10, max:Infinity, label:"Más de 10 mil" },
-];
 const BURBUJAS = [
   { value:"Standard",     label:"Standard" },
   { value:"Microburbuja", label:"Microburbuja" },
@@ -46,7 +39,13 @@ const INIT = {
   costoRolloInviolable: 0,
   costoCalibacion: 100,
   minimoUSD: 300,
-  rentabilidades: [6.0, 4.0, 3.0, 2.5, 2.0],
+  rangos: [
+    { min:0,  max:2,        label:"1 a 2 mil",    rentabilidad:6.0 },
+    { min:2,  max:4,        label:"2 a 4 mil",    rentabilidad:4.0 },
+    { min:4,  max:7,        label:"4 a 7 mil",    rentabilidad:3.0 },
+    { min:7,  max:10,       label:"7 a 10 mil",   rentabilidad:2.5 },
+    { min:10, max:Infinity, label:"Más de 10 mil", rentabilidad:2.0 },
+  ],
   tipoCambio: 1405,
   cotizaciones: [],
 };
@@ -68,24 +67,22 @@ const fmtImporte = (n, prefix="$") => {
 };
 const today  = () => new Date().toLocaleDateString("es-AR");
 
-function getRangoIdx(m) {
-  if (m <= 2)  return 0;
-  if (m <= 4)  return 1;
-  if (m <= 7)  return 2;
-  if (m <= 10) return 3;
-  return 4;
+function getRangoIdx(m, rangos) {
+  for (let i = 0; i < rangos.length; i++) {
+    if (m >= rangos[i].min && m < rangos[i].max) return i;
+  }
+  return rangos.length - 1; // último rango
 }
 
 function calcular(inp, adm) {
   const { tipo, burbuja, capas, ancho, largo, solapa, millares, cintaRep, cintaInv, color, colorOpcion } = inp;
-  // Standard siempre 200cm, Micro/Burbujón 144cm
   const anchoMaquina = burbuja === "Standard" ? 200 : 144;
   const anchoNum  = parseFloat(ancho)  || 0;
   const largoNum  = parseFloat(largo)  || 0;
   const solapaNum = parseFloat(solapa) || 0;
-  const anchoReqRaw = tipo === "bolsa" ? largoNum * 2 : anchoNum;
+  const anchoReqRaw = tipo === "bolsa" ? largoNum * 2 + solapaNum : anchoNum;
   if (anchoReqRaw <= 0) return null;
-  const anchoReq = anchoReqRaw; // sin redondeo a múltiplos de 10
+  const anchoReq = anchoReqRaw;
   const fajas = Math.floor(anchoMaquina / anchoReq);
   if (fajas <= 0) return { anchoReq, anchoMaquina, fajas:0, error:true };
   const desperdicioCm = Math.round(anchoMaquina - fajas * anchoReq);
@@ -101,25 +98,22 @@ function calcular(inp, adm) {
   const factorCapas = capasEfectivas === "triple" ? 1.5 : 1;
   const factorColor = color ? 1.25 : 1;
   const costoM2ars  = (PESO_M2[burbuja]||0.0777) * adm.precioPE * adm.tipoCambio * factorTipo * factorCapas * factorColor;
-  // m² real consumido por unidad: área física de la bolsa o lámina
-  // Para bolsas, la solapa se dobla hacia adentro, sumando la mitad al largo
-  const largoReal = tipo === "bolsa" ? (largoNum + solapaNum / 2) : largoNum;
-  const m2Unidad = (anchoNum / 100) * (largoReal / 100);
+  const m2Unidad = (anchoNum / 100) * (largoNum / 100);
   const costoMaterial = costoM2ars * m2Unidad;
 
   const m2Desperdicio = desperdicioCm <= 20 && cantUnidadesInt > 0
     ? ((desperdicioCm / 100) * (largoNum / 100)) / fajas : 0;
   const costoDesperdicio = costoM2ars * m2Desperdicio;
 
-  const costoCmRep = adm.costoRolloRepegable  > 0 ? ((adm.costoRolloRepegable  * adm.tipoCambio) / (METROS_REP * 100)) : 0;
-  const costoCmInv = adm.costoRolloInviolable > 0 ? ((adm.costoRolloInviolable * adm.tipoCambio) / (METROS_INV * 100)) : 0;
+  const costoCmRep = adm.costoRolloRepegable  > 0 ? ((adm.costoRolloRepegable  * adm.tipoCambio) / (METROS_REP * 100)) * 3 : 0;
+  const costoCmInv = adm.costoRolloInviolable > 0 ? ((adm.costoRolloInviolable * adm.tipoCambio) / (METROS_INV * 100)) * 3 : 0;
   let extras = 0;
   if (cintaRep) extras += costoCmRep * anchoNum;
   if (cintaInv) extras += costoCmInv * anchoNum;
 
   const costoPorUnidad = costoMaterial + costoDesperdicio + extras;
-  const rangoIdx    = getRangoIdx(cantMillares);
-  const rentaMult   = 1 + (adm.rentabilidades[rangoIdx] || 2);
+  const rangoIdx    = getRangoIdx(cantMillares, adm.rangos);
+  const rentaMult   = 1 + ((adm.rangos[rangoIdx]?.rentabilidad || 2) / 100);
   const precioBase  = costoPorUnidad * rentaMult;
 
   const totalBaseUSD = cantUnidadesInt > 0 ? (precioBase * cantUnidadesInt) / adm.tipoCambio : 0;
@@ -144,14 +138,13 @@ function calcular(inp, adm) {
     costoTotal,   costoTotalUSD:   costoTotal  / adm.tipoCambio,
     utilidad,     utilidadUSD:     utilidad    / adm.tipoCambio,
     rentReal: costoTotal > 0 ? Math.round((utilidad / costoTotal) * 100) : 0,
-    rangoLabel: RANGOS[rangoIdx].label,
-    rentaPct:   Math.round(adm.rentabilidades[rangoIdx] * 100),
+    rangoLabel: adm.rangos[rangoIdx]?.label || "?",
+    rentaPct:   Math.round((adm.rangos[rangoIdx]?.rentabilidad || 2) * 10) / 10,
     cantUnidades: cantUnidadesInt, cantMillares, capasEfectivas,
     metrosLinealesJumbo, rollosJumboNecesarios, error:false,
   };
 }
 
-// Logos -30% vs v8 (88→62, 64→45)
 const BurbuLogo  = () => <img src="/burbupack.png"  alt="BurbuPack" style={{ height:"clamp(40px,7vw,62px)", display:"block" }}/>;
 const EmpackLogo = () => <img src="/empack.png" alt="Empack" style={{ height:"clamp(29px,5vw,45px)", display:"block" }}/>;
 
@@ -218,12 +211,15 @@ export default function App() {
   const [clienteNombre, setClienteNombre] = useState("");
   const [savedMsg,      setSavedMsg]      = useState("");
   const [dolarLoading,  setDolarLoading]  = useState(false);
+  const [draftRangos,   setDraftRangos]   = useState(null);
+  const [rangoErrors,   setRangoErrors]   = useState({});
+  const [rangoGlobalErr,setRangoGlobalErr]= useState([]);
   const [inp, setInp] = useState({ tipo:"bolsa", burbuja:"Standard", capas:"simple", ancho:"", largo:"", solapa:"", millares:"", cintaRep:false, cintaInv:false, color:false, colorOpcion:"", colorNombre:"" });
   const [res, setRes] = useState(null);
 
   const setI = (k,v) => setInp(p => ({ ...p, [k]:v }));
 
-  useEffect(() => { setRes(calcular(inp, as)); }, [inp, as.precioPE, as.costoRolloRepegable, as.costoRolloInviolable, as.rentabilidades, as.tipoCambio, as.minimoUSD, as.costoCalibacion]);
+  useEffect(() => { setRes(calcular(inp, as)); }, [inp, as.precioPE, as.costoRolloRepegable, as.costoRolloInviolable, as.rangos, as.tipoCambio, as.minimoUSD, as.costoCalibacion]);
 
   async function fetchDolar() {
     setDolarLoading(true);
@@ -387,7 +383,6 @@ tr:nth-child(even) td{background:#f7fbff}
   const tBtn   = act => ({ flex:1, padding:"10px 4px", fontSize:"clamp(12px,2.8vw,14px)", borderRadius:9, cursor:"pointer", background:act?B:"transparent", color:act?"white":BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
   const togBtn = act => ({ flex:1, padding:"9px 4px", fontSize:"clamp(11px,2.5vw,13px)", borderRadius:8, cursor:"pointer", background:act?`${B}18`:"white", color:act?BDK:BD, border:`1.5px solid ${B}`, fontWeight:act?600:400 });
 
-  // Input numérico sin cero a la izquierda
   const numInput = (k) => ({
     ...iS,
     value: inp[k],
@@ -399,7 +394,105 @@ tr:nth-child(even) td{background:#f7fbff}
     type:"number", min:"0", placeholder:"0"
   });
 
-  if (loading) return (
+  // ─── Validación de rangos ───────────────────────────────────────────────────
+  // Valida UN rango individualmente → devuelve array de errores (bloquea guardado)
+  const esValorValido = v => {
+    if (v <= 0) return false;
+    if (v >= 5) return Number.isInteger(v);
+    return Math.round(v * 10) % 5 === 0; // múltiplo de 0.5
+  };
+
+  function erroresIndividuales(r) {
+    const errs = [];
+    if (r.min <= 0) errs.push("El mínimo debe ser mayor a 0.");
+    else if (!esValorValido(r.min)) errs.push(r.min < 5 ? "Mínimo < 5: solo se permite .0 o .5 (ej: 0.5, 1, 1.5, 2…)" : "Mínimo ≥ 5: debe ser un entero (ej: 5, 7, 10…)");
+    const maxReal = r.max === Infinity ? null : r.max;
+    if (maxReal !== null) {
+      if (maxReal <= 0) errs.push("El máximo debe ser mayor a 0.");
+      else if (!esValorValido(maxReal)) errs.push(maxReal < 5 ? "Máximo < 5: solo se permite .0 o .5 (ej: 0.5, 1, 1.5, 2…)" : "Máximo ≥ 5: debe ser un entero (ej: 5, 7, 10…)");
+    }
+    if (r.min > 0 && maxReal !== null && r.min >= maxReal) errs.push("El mínimo no puede ser mayor o igual al máximo.");
+    if (!r.rentabilidad || r.rentabilidad <= 65) errs.push("La rentabilidad debe ser mayor a 65%.");
+    return errs;
+  }
+
+  // Valida el conjunto completo → devuelve advertencias inter-rango (NO bloquean)
+  function advertenciasGlobales(rangos) {
+    const warns = [];
+    const sorted = [...rangos].sort((a,b)=>a.min-b.min);
+    // Números repetidos
+    const nums = rangos.flatMap(r => [r.min, ...(r.max !== Infinity ? [r.max] : [])]).filter(v=>v>0);
+    const dupes = nums.filter((v,i,a)=>a.indexOf(v)!==i);
+    if (dupes.length > 0) warns.push(`Números repetidos entre rangos: ${[...new Set(dupes)].join(", ")}`);
+    // Max > min del siguiente
+    for (let j = 0; j < sorted.length - 1; j++) {
+      const c = sorted[j], n = sorted[j+1];
+      if (c.max !== Infinity && c.max > n.min) warns.push(`"${c.label||"Rango "+(j+1)}": el máximo (${c.max}) supera el mínimo del siguiente rango (${n.min}).`);
+    }
+    // Rentabilidades únicas
+    const rents = rangos.map(r=>r.rentabilidad);
+    if (rents.filter((v,i,a)=>a.indexOf(v)!==i).length > 0) warns.push("Hay rentabilidades iguales entre rangos. Deben ser todas distintas.");
+    // Rentabilidades decrecientes
+    const rs = sorted.map(r=>r.rentabilidad);
+    for (let j = 0; j < rs.length - 1; j++) {
+      if (rs[j] <= rs[j+1]) { warns.push("Las rentabilidades deben ser decrecientes: mayor rentabilidad para el rango con menor mínimo."); break; }
+    }
+    return warns;
+  }
+
+  // Recalcula errores/advertencias sobre el draft actual y lo guarda rango a rango
+  function aplicarCambios(nuevosDraft) {
+    // Auto-ordenar por min
+    const sorted = [...nuevosDraft].sort((a,b)=>(a.min||0)-(b.min||0));
+    setDraftRangos(sorted);
+
+    // Errores individuales por rango
+    const errs = {};
+    sorted.forEach((r, i) => {
+      const e = erroresIndividuales(r);
+      if (e.length > 0) errs[i] = e;
+    });
+    setRangoErrors(errs);
+
+    // Advertencias globales (solo visual, no bloquean)
+    setRangoGlobalErr(advertenciasGlobales(sorted));
+
+    // Guardar en Firebase los rangos que NO tienen errores individuales
+    // (todos los rangos se guardan juntos, pero sólo si cada uno pasa su validación)
+    const todosValidos = Object.keys(errs).length === 0;
+    if (todosValidos) {
+      setAs(p => ({ ...p, rangos: sorted }));
+    } else {
+      // Guardar igual pero marcar — los rangos con error quedan en draft visible
+      // El usuario ve sus errores y corrige; cuando todos pasen, Firebase se actualiza
+      setAsRaw(p => ({ ...p, rangos: sorted })); // actualiza UI sin tocar Firebase
+    }
+  }
+
+  function actualizarRango(idx, field, rawVal) {
+    const draft = [...(draftRangos ?? as.rangos)];
+    draft[idx] = { ...draft[idx], [field]: rawVal };
+    aplicarCambios(draft);
+  }
+
+  function eliminarRango(idx) {
+    const draft = (draftRangos ?? [...as.rangos]).filter((_,j)=>j!==idx);
+    aplicarCambios(draft);
+  }
+
+  function agregarRango() {
+    const draft = [...(draftRangos ?? as.rangos)];
+    draft.push({ min: 0, max: Infinity, label: "Nuevo rango", rentabilidad: 0 });
+    aplicarCambios(draft);
+  }
+
+  const rangosActivos = draftRangos ?? as.rangos;
+  const hayErroresRangos = Object.keys(rangoErrors).length > 0;
+  const hayAdvertencias  = rangoGlobalErr.length > 0;
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
+    if (loading) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:300, gap:16 }}>
       <BurbuLogo/><p style={{ color:BD, fontSize:14 }}>Cargando...</p>
     </div>
@@ -446,15 +539,10 @@ tr:nth-child(even) td{background:#f7fbff}
     : largoV > 0 && (largoV < lim.largoMin || largoV > lim.largoMax)
     ? `Largo debe ser entre ${lim.largoMin} y ${lim.largoMax} cm para ${inp.burbuja}.` : null;
 
-  const solapaError = inp.tipo === "bolsa"
-    ? (inp.cintaRep || inp.cintaInv) && (solapaV <= 0 || inp.solapa.trim() === "")
-      ? "La solapa es obligatoria cuando hay cinta."
-      : solapaV > 0 && solapaV < 3
-      ? "La solapa debe ser igual o mayor a 3 cm."
-      : solapaV > 0 && largoV > 0 && solapaV > largoV * 0.5
-      ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
-      : null
-    : null;
+  const solapaError = inp.tipo === "bolsa" && solapaV > 0
+    ? solapaV < 3 ? "La solapa debe ser igual o mayor a 3 cm."
+    : largoV > 0 && solapaV > largoV * 0.5 ? `La solapa no puede superar el 50% del largo (máx. ${largoV * 0.5} cm).`
+    : null : null;
 
   const usaCinta = inp.cintaRep || inp.cintaInv;
   const colorNombreL = (inp.colorNombre || "").trim().toLowerCase();
@@ -488,11 +576,12 @@ tr:nth-child(even) td{background:#f7fbff}
             <div style={{ display:"flex", gap:8, marginBottom:10 }}>
               {BURBUJAS.map(b => <button key={b.value} onClick={() => setI("burbuja",b.value)} style={{ ...togBtn(inp.burbuja===b.value), flex:1, fontSize:"clamp(10px,2.5vw,12px)", padding:"8px 2px" }}>{b.label}</button>)}
             </div>
-<label style={lS}>Capas {usaCinta && "(→ Triple automático)"}</label>
+            <label style={lS}>Capas</label>
             <div style={{ display:"flex", gap:8, marginBottom:12 }}>
               {["simple","triple"].map(c => <button key={c} onClick={() => setI("capas",c)} style={togBtn(inp.capas===c)}>{c==="simple"?"Simple":"Triple"}</button>)}
             </div>
-            {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Capas Triple</p>}
+            {usaCinta && <p style={{ fontSize:11, color:B, margin:"-8px 0 10px", fontWeight:500 }}>⚡ Cinta seleccionada: se aplica automáticamente Triple</p>}
+
             {/* Medidas: ancho, largo, cantidad, solapa */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
               <div><label style={lS}>Ancho (cm)</label><input {...numInput("ancho")} style={iS}/></div>
@@ -502,11 +591,6 @@ tr:nth-child(even) td{background:#f7fbff}
             </div>
 
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom: inp.color ? 10 : 0 }}>
-              {usaCinta && (
-                <div style={{ width:"100%", background:"#fff8e1", border:`0.5px solid #f39c12`, borderRadius:10, padding:"10px 14px", marginBottom:10 }}>
-                  <p style={{ color:"#b7770d", fontSize:13, margin:0, fontWeight:600 }}>⚠️ Con cinta se aplica automáticamente <strong>Capas Triple</strong></p>
-                </div>
-              )}
               <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color:BD, cursor:"pointer", fontWeight:500 }}>
                 <input type="checkbox" checked={inp.cintaRep} onChange={e => { if(e.target.checked) setInp(p=>({...p,cintaRep:true,cintaInv:false})); else setI("cintaRep",false); }}/>Cinta repegable
               </label>
@@ -517,7 +601,6 @@ tr:nth-child(even) td{background:#f7fbff}
                 <input type="checkbox" checked={inp.color} onChange={e => setI("color",e.target.checked)}/>Color
               </label>
             </div>
-
             {inp.color && (
               <div style={{ marginTop:8 }}>
                 <label style={lS}>Tipo de color</label>
@@ -640,8 +723,8 @@ tr:nth-child(even) td{background:#f7fbff}
 
         {tab === "admin" && role === "admin" && (<>
           <div style={{ display:"flex", gap:6, marginBottom:14 }}>
-            {["costos","vendedores","pines"].map(t => (
-              <button key={t} onClick={() => setAdminTab(t)} style={tBtn(adminTab===t)}>{t==="costos"?"Costos":t==="vendedores"?"Vendedores":"PINs"}</button>
+            {["costos","vendedores","pines","rangos"].map(t => (
+              <button key={t} onClick={() => setAdminTab(t)} style={tBtn(adminTab===t)}>{t==="costos"?"Costos":t==="vendedores"?"Vendedores":t==="pines"?"PINs":"Rangos"}</button>
             ))}
           </div>
 
@@ -696,16 +779,6 @@ tr:nth-child(even) td{background:#f7fbff}
                 <div><label style={lS}>Costo calibración (USD)</label><div style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:14, color:BD, fontWeight:600 }}>U$S</span><input type="number" step="10" value={as.costoCalibacion||100} onChange={e => setAs(p => ({...p,costoCalibacion:parseFloat(e.target.value)||0}))} style={{ ...iS, flex:1 }}/></div></div>
               </div>
             </div>
-            <div style={crd}>
-              <p style={{ fontSize:11, fontWeight:700, color:BD, margin:"0 0 10px", letterSpacing:0.8 }}>RENTABILIDAD POR RANGO (millares)</p>
-              {RANGOS.map((r,i) => (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                  <span style={{ fontSize:13, color:BD, flex:1 }}>{r.label}</span>
-                  <input type="number" value={Math.round(as.rentabilidades[i]*100)} onChange={e => setAs(p => { const r2=[...p.rentabilidades]; r2[i]=(parseFloat(e.target.value)||0)/100; return {...p,rentabilidades:r2}; })} style={{ ...iS, width:72 }}/>
-                  <span style={{ fontSize:13, color:BD, fontWeight:600 }}>%</span>
-                </div>
-              ))}
-            </div>
           </>)}
 
           {adminTab === "vendedores" && (
@@ -732,6 +805,131 @@ tr:nth-child(even) td{background:#f7fbff}
                   <input type="password" value={v.pin} onChange={e => setAs(p => { const vs=[...p.vendedores]; vs[i]={...vs[i],pin:e.target.value}; return {...p,vendedores:vs}; })} style={{ ...iS, letterSpacing:6, fontSize:18 }} placeholder="••••"/>
                 </div>
               ))}
+            </div>
+          )}
+
+          {adminTab === "rangos" && (
+            <div style={crd}>
+              {/* Header con estado */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                <p style={{ fontSize:11, fontWeight:700, color:BD, margin:0, letterSpacing:0.8 }}>RENTABILIDAD POR RANGO (millares)</p>
+                {hayErroresRangos
+                  ? <span style={{ fontSize:11, color:"#c0392b", fontWeight:700 }}>✏ Completá los campos con error</span>
+                  : <span style={{ fontSize:11, color:"#27ae60", fontWeight:600 }}>✓ Guardado en Firebase</span>
+                }
+              </div>
+
+              {/* Advertencias globales (inter-rango) — solo informativas */}
+              {hayAdvertencias && (
+                <div style={{ background:"#fffbea", border:"1px solid #f39c12", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
+                  <p style={{ fontSize:11, fontWeight:700, color:"#b7770d", margin:"0 0 4px" }}>⚠ Advertencias entre rangos (corregí para que el cotizador funcione correctamente):</p>
+                  {rangoGlobalErr.map((msg,k) => <p key={k} style={{ color:"#b7770d", fontSize:11, margin:k>0?"3px 0 0":0 }}>· {msg}</p>)}
+                </div>
+              )}
+
+              {/* Guía rápida */}
+              <div style={{ background:`${B}0d`, borderRadius:8, padding:"7px 12px", marginBottom:14, fontSize:11, color:BD, lineHeight:1.7 }}>
+                <strong>Reglas por campo:</strong> Valores &lt; 5 → solo .0 o .5 (ej: 0.5, 1, 1.5, 2…) · Valores ≥ 5 → enteros (ej: 5, 7, 10…) · Rentabilidad &gt; 65% · Sin repetidos · Decreciente de menor a mayor mínimo
+              </div>
+
+              {rangosActivos.map((r, i) => {
+                const errsI = rangoErrors[i] || [];
+                const tieneError = errsI.length > 0;
+                const esNuevo = !r.min && r.min !== 0 && r.rentabilidad === 0;
+                return (
+                  <div key={i} style={{
+                    background: tieneError ? "#fdf6f6" : "#f8f9fa",
+                    border: `1.5px solid ${tieneError ? "#e74c3c" : hayAdvertencias ? "#f0b429" : `${B}30`}`,
+                    borderRadius:10, padding:12, marginBottom:10,
+                    transition:"border-color 0.2s"
+                  }}>
+                    {/* Cabecera */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: errsI.length > 0 ? 8 : 10 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{
+                          display:"inline-block", width:20, height:20, borderRadius:"50%",
+                          background: tieneError ? "#e74c3c" : "#27ae60",
+                          color:"white", fontSize:11, fontWeight:700,
+                          textAlign:"center", lineHeight:"20px", flexShrink:0
+                        }}>{tieneError ? "!" : "✓"}</span>
+                        <span style={{ fontSize:12, fontWeight:700, color: tieneError ? "#c0392b" : BDK }}>
+                          Rango {i+1}{r.label && r.label !== "Nuevo rango" ? ` — ${r.label}` : ""}
+                        </span>
+                      </div>
+                      <button onClick={() => eliminarRango(i)} style={{ padding:"3px 10px", fontSize:11, borderRadius:6, border:"1px solid #e74c3c", color:"#c0392b", background:"none", cursor:"pointer", fontWeight:600 }}>✕ Eliminar</button>
+                    </div>
+
+                    {/* Errores individuales — aparecen campo a campo */}
+                    {errsI.map((msg, k) => (
+                      <div key={k} style={{ background:"#fde8e8", borderRadius:6, padding:"5px 10px", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{ color:"#c0392b", fontSize:13, flexShrink:0 }}>⚠</span>
+                        <span style={{ color:"#c0392b", fontSize:11, fontWeight:500 }}>{msg}</span>
+                      </div>
+                    ))}
+
+                    {/* Campos: Min | Max | Rentabilidad en fila */}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
+                      <div>
+                        <label style={lS}>Mín (millares)</label>
+                        <input
+                          type="number" step="0.5" min="0.5"
+                          value={r.min > 0 ? r.min : ""}
+                          onChange={e => {
+                            const v = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                            actualizarRango(i, "min", isNaN(v) ? 0 : v);
+                          }}
+                          style={{ ...iS, marginBottom:0, borderColor: errsI.some(m=>m.includes("mínimo")||m.includes("Mínimo")) ? "#e74c3c" : `${B}50` }}
+                          placeholder="ej: 1"
+                        />
+                      </div>
+                      <div>
+                        <label style={lS}>Máx (millares)</label>
+                        <input
+                          type="number" step="0.5" min="0.5"
+                          value={r.max === Infinity ? "" : (r.max || "")}
+                          onChange={e => {
+                            const v = e.target.value === "" ? Infinity : parseFloat(e.target.value);
+                            actualizarRango(i, "max", isNaN(v) ? Infinity : v);
+                          }}
+                          style={{ ...iS, marginBottom:0, borderColor: errsI.some(m=>m.includes("máximo")||m.includes("Máximo")) ? "#e74c3c" : `${B}50` }}
+                          placeholder="vacío = sin límite"
+                        />
+                      </div>
+                      <div>
+                        <label style={lS}>Rentabilidad (%)</label>
+                        <input
+                          type="number" step="0.5" min="65.5"
+                          value={r.rentabilidad > 0 ? r.rentabilidad : ""}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value);
+                            actualizarRango(i, "rentabilidad", isNaN(v) ? 0 : v);
+                          }}
+                          style={{ ...iS, marginBottom:0, borderColor: errsI.some(m=>m.includes("rentabilidad")) ? "#e74c3c" : `${B}50` }}
+                          placeholder="> 65"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Etiqueta */}
+                    <div>
+                      <label style={lS}>Etiqueta</label>
+                      <input
+                        type="text"
+                        value={r.label === "Nuevo rango" && !tieneError ? "" : r.label}
+                        onChange={e => actualizarRango(i, "label", e.target.value || "Nuevo rango")}
+                        style={{ ...iS, marginBottom:0 }}
+                        placeholder="ej: 1 a 2 mil"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={agregarRango}
+                style={{ ...iS, cursor:"pointer", color:"white", border:"none", background: hayErroresRangos ? "#aaa" : B, marginTop:4, fontWeight:600, opacity: hayErroresRangos ? 0.7 : 1 }}
+                title={hayErroresRangos ? "Completá los errores del rango actual antes de agregar uno nuevo" : "Agregar nuevo rango"}
+              >+ Agregar rango{hayErroresRangos ? " (completá los errores primero)" : ""}</button>
             </div>
           )}
         </>)}
