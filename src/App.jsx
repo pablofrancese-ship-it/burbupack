@@ -395,98 +395,114 @@ tr:nth-child(even) td{background:#f7fbff}
   });
 
   // ─── Validación de rangos ───────────────────────────────────────────────────
-  // Valida UN rango individualmente → devuelve array de errores (bloquea guardado)
   const esValorValido = v => {
     if (v <= 0) return false;
     if (v >= 5) return Number.isInteger(v);
-    return Math.round(v * 10) % 5 === 0; // múltiplo de 0.5
+    return Math.round(v * 10) % 5 === 0;
   };
 
-  function erroresIndividuales(r) {
+  function erroresRango(r) {
     const errs = [];
-    if (r.min <= 0) errs.push("El mínimo debe ser mayor a 0.");
-    else if (!esValorValido(r.min)) errs.push(r.min < 5 ? "Mínimo < 5: solo se permite .0 o .5 (ej: 0.5, 1, 1.5, 2…)" : "Mínimo ≥ 5: debe ser un entero (ej: 5, 7, 10…)");
+    if (!r.min || r.min <= 0) errs.push("El mínimo debe ser mayor a 0.");
+    else if (!esValorValido(r.min)) errs.push(r.min < 5 ? "Mínimo: solo se permite .0 o .5 (ej: 0.5, 1, 1.5, 2…)" : "Mínimo: debe ser un entero (ej: 5, 7, 10…)");
     const maxReal = r.max === Infinity ? null : r.max;
     if (maxReal !== null) {
       if (maxReal <= 0) errs.push("El máximo debe ser mayor a 0.");
-      else if (!esValorValido(maxReal)) errs.push(maxReal < 5 ? "Máximo < 5: solo se permite .0 o .5 (ej: 0.5, 1, 1.5, 2…)" : "Máximo ≥ 5: debe ser un entero (ej: 5, 7, 10…)");
+      else if (!esValorValido(maxReal)) errs.push(maxReal < 5 ? "Máximo: solo se permite .0 o .5 (ej: 0.5, 1, 1.5, 2…)" : "Máximo: debe ser un entero (ej: 5, 7, 10…)");
     }
     if (r.min > 0 && maxReal !== null && r.min >= maxReal) errs.push("El mínimo no puede ser mayor o igual al máximo.");
     if (!r.rentabilidad || r.rentabilidad <= 65) errs.push("La rentabilidad debe ser mayor a 65%.");
     return errs;
   }
 
-  // Valida el conjunto completo → devuelve advertencias inter-rango (NO bloquean)
-  function advertenciasGlobales(rangos) {
+  function advertenciasConjunto(rangos) {
     const warns = [];
-    const sorted = [...rangos].sort((a,b)=>a.min-b.min);
-    // Números repetidos
-    const nums = rangos.flatMap(r => [r.min, ...(r.max !== Infinity ? [r.max] : [])]).filter(v=>v>0);
-    const dupes = nums.filter((v,i,a)=>a.indexOf(v)!==i);
-    if (dupes.length > 0) warns.push(`Números repetidos entre rangos: ${[...new Set(dupes)].join(", ")}`);
-    // Max > min del siguiente
+    const sorted = [...rangos].sort((a,b) => a.min - b.min);
+    const nums = rangos.flatMap(r => [r.min, ...(r.max !== Infinity ? [r.max] : [])]).filter(v => v > 0);
+    const dupes = [...new Set(nums.filter((v,i,a) => a.indexOf(v) !== i))];
+    if (dupes.length > 0) warns.push(`Números repetidos entre rangos: ${dupes.join(", ")}`);
     for (let j = 0; j < sorted.length - 1; j++) {
       const c = sorted[j], n = sorted[j+1];
-      if (c.max !== Infinity && c.max > n.min) warns.push(`"${c.label||"Rango "+(j+1)}": el máximo (${c.max}) supera el mínimo del siguiente rango (${n.min}).`);
+      if (c.max !== Infinity && c.max > n.min) warns.push(`"${c.label||"Rango "+(j+1)}": el máximo (${c.max}) supera el mínimo del rango siguiente (${n.min}).`);
     }
-    // Rentabilidades únicas
-    const rents = rangos.map(r=>r.rentabilidad);
-    if (rents.filter((v,i,a)=>a.indexOf(v)!==i).length > 0) warns.push("Hay rentabilidades iguales entre rangos. Deben ser todas distintas.");
-    // Rentabilidades decrecientes
-    const rs = sorted.map(r=>r.rentabilidad);
+    const rents = rangos.map(r => r.rentabilidad);
+    if (rents.filter((v,i,a) => a.indexOf(v) !== i).length > 0) warns.push("Hay rentabilidades iguales entre rangos. Deben ser todas distintas.");
+    const rs = sorted.map(r => r.rentabilidad);
     for (let j = 0; j < rs.length - 1; j++) {
       if (rs[j] <= rs[j+1]) { warns.push("Las rentabilidades deben ser decrecientes: mayor rentabilidad para el rango con menor mínimo."); break; }
     }
     return warns;
   }
 
-  // Recalcula errores/advertencias sobre el draft actual y lo guarda rango a rango
-  function aplicarCambios(nuevosDraft) {
-    // Auto-ordenar por min
-    const sorted = [...nuevosDraft].sort((a,b)=>(a.min||0)-(b.min||0));
-    setDraftRangos(sorted);
+  // ─── Estado local del formulario del rango en edición ───────────────────────
+  // draftRangos = rangos ya confirmados (los guardados)
+  // rangoEnEdicion = el rango que se está escribiendo ahora (solo uno a la vez)
+  // rangoErrors = errores del rango en edición (se muestran al intentar confirmar)
 
-    // Errores individuales por rango
-    const errs = {};
-    sorted.forEach((r, i) => {
-      const e = erroresIndividuales(r);
-      if (e.length > 0) errs[i] = e;
-    });
-    setRangoErrors(errs);
+  const rangosGuardados = draftRangos ?? [];           // los que ya están confirmados
+  const [rangoEnEdicion, setRangoEnEdicion] = useState(null); // null = no hay rango nuevo
 
-    // Advertencias globales (solo visual, no bloquean)
-    setRangoGlobalErr(advertenciasGlobales(sorted));
+  function editarCampo(field, rawVal) {
+    setRangoEnEdicion(prev => ({ ...prev, [field]: rawVal }));
+    setRangoErrors({});   // limpiar errores mientras escribe
+    setRangoGlobalErr([]);
+  }
 
-    // Guardar en Firebase los rangos que NO tienen errores individuales
-    // (todos los rangos se guardan juntos, pero sólo si cada uno pasa su validación)
-    const todosValidos = Object.keys(errs).length === 0;
-    if (todosValidos) {
-      setAs(p => ({ ...p, rangos: sorted }));
-    } else {
-      // Guardar igual pero marcar — los rangos con error quedan en draft visible
-      // El usuario ve sus errores y corrige; cuando todos pasen, Firebase se actualiza
-      setAsRaw(p => ({ ...p, rangos: sorted })); // actualiza UI sin tocar Firebase
+  function confirmarRango() {
+    // Validar el rango en edición
+    const errs = rangoEnEdicion ? erroresRango(rangoEnEdicion) : ["Completá todos los campos."];
+    if (errs.length > 0) {
+      setRangoErrors({ 0: errs });
+      return;
+    }
+    // Agregar a la lista de confirmados, ordenar por min
+    const nuevoId = { ...rangoEnEdicion, _id: rangoEnEdicion._id ?? Date.now() };
+    const todos = [...rangosGuardados, nuevoId].sort((a,b) => a.min - b.min);
+    // Advertencias inter-rango (solo visual)
+    setRangoGlobalErr(advertenciasConjunto(todos));
+    setRangoErrors({});
+    setDraftRangos(todos);
+    setRangoEnEdicion(null);   // cerrar el formulario
+    setAs(p => ({ ...p, rangos: todos }));
+  }
+
+  function cancelarEdicion() {
+    setRangoEnEdicion(null);
+    setRangoErrors({});
+    setRangoGlobalErr([]);
+  }
+
+  function iniciarNuevoRango() {
+    setRangoEnEdicion({ _id: Date.now(), min: 0, max: Infinity, label: "", rentabilidad: 0 });
+    setRangoErrors({});
+  }
+
+  function editarRangoExistente(idx) {
+    // Sacar de confirmados y poner en edición
+    const r = rangosGuardados[idx];
+    const sinEste = rangosGuardados.filter((_,j) => j !== idx);
+    setDraftRangos(sinEste);
+    setRangoEnEdicion({ ...r });
+    setRangoErrors({});
+    setRangoGlobalErr([]);
+  }
+
+  function eliminarRangoGuardado(idx) {
+    const nuevos = rangosGuardados.filter((_,j) => j !== idx);
+    setDraftRangos(nuevos);
+    setRangoGlobalErr(advertenciasConjunto(nuevos));
+    setAs(p => ({ ...p, rangos: nuevos }));
+  }
+
+  // Inicializar draftRangos desde Firebase la primera vez que entra al tab
+  function inicializarDraft() {
+    if (draftRangos === null) {
+      const conIds = as.rangos.map((r,i) => r._id ? r : { ...r, _id: Date.now()+i });
+      setDraftRangos(conIds);
+      setRangoGlobalErr(advertenciasConjunto(conIds));
     }
   }
 
-  function actualizarRango(idx, field, rawVal) {
-    const draft = [...(draftRangos ?? as.rangos)];
-    draft[idx] = { ...draft[idx], [field]: rawVal };
-    aplicarCambios(draft);
-  }
-
-  function eliminarRango(idx) {
-    const draft = (draftRangos ?? [...as.rangos]).filter((_,j)=>j!==idx);
-    aplicarCambios(draft);
-  }
-
-  function agregarRango() {
-    const draft = [...(draftRangos ?? as.rangos)];
-    draft.push({ min: 0, max: Infinity, label: "Nuevo rango", rentabilidad: 0 });
-    aplicarCambios(draft);
-  }
-
-  const rangosActivos = draftRangos ?? as.rangos;
   const hayErroresRangos = Object.keys(rangoErrors).length > 0;
   const hayAdvertencias  = rangoGlobalErr.length > 0;
 
@@ -809,127 +825,150 @@ tr:nth-child(even) td{background:#f7fbff}
           )}
 
           {adminTab === "rangos" && (
-            <div style={crd}>
-              {/* Header con estado */}
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={crd} onClick={inicializarDraft}>
+              {/* Header */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
                 <p style={{ fontSize:11, fontWeight:700, color:BD, margin:0, letterSpacing:0.8 }}>RENTABILIDAD POR RANGO (millares)</p>
-                {hayErroresRangos
-                  ? <span style={{ fontSize:11, color:"#c0392b", fontWeight:700 }}>✏ Completá los campos con error</span>
-                  : <span style={{ fontSize:11, color:"#27ae60", fontWeight:600 }}>✓ Guardado en Firebase</span>
-                }
+                {rangosGuardados.length > 0 && !rangoEnEdicion && !hayAdvertencias &&
+                  <span style={{ fontSize:11, color:"#27ae60", fontWeight:600 }}>✓ Guardado en Firebase</span>}
               </div>
 
-              {/* Advertencias globales (inter-rango) — solo informativas */}
+              {/* Advertencias inter-rango */}
               {hayAdvertencias && (
                 <div style={{ background:"#fffbea", border:"1px solid #f39c12", borderRadius:8, padding:"10px 12px", marginBottom:12 }}>
-                  <p style={{ fontSize:11, fontWeight:700, color:"#b7770d", margin:"0 0 4px" }}>⚠ Advertencias entre rangos (corregí para que el cotizador funcione correctamente):</p>
+                  <p style={{ fontSize:11, fontWeight:700, color:"#b7770d", margin:"0 0 4px" }}>⚠ Advertencias entre rangos (corregí editando el rango correspondiente):</p>
                   {rangoGlobalErr.map((msg,k) => <p key={k} style={{ color:"#b7770d", fontSize:11, margin:k>0?"3px 0 0":0 }}>· {msg}</p>)}
                 </div>
               )}
 
-              {/* Guía rápida */}
+              {/* Reglas */}
               <div style={{ background:`${B}0d`, borderRadius:8, padding:"7px 12px", marginBottom:14, fontSize:11, color:BD, lineHeight:1.7 }}>
-                <strong>Reglas por campo:</strong> Valores &lt; 5 → solo .0 o .5 (ej: 0.5, 1, 1.5, 2…) · Valores ≥ 5 → enteros (ej: 5, 7, 10…) · Rentabilidad &gt; 65% · Sin repetidos · Decreciente de menor a mayor mínimo
+                <strong>Reglas:</strong> Valores &lt; 5 → solo .0 o .5 (ej: 0.5, 1, 1.5, 2…) · Valores ≥ 5 → enteros · Rentabilidad &gt; 65% · Sin repetidos · Decreciente de menor a mayor mínimo
               </div>
 
-              {rangosActivos.map((r, i) => {
-                const errsI = rangoErrors[i] || [];
-                const tieneError = errsI.length > 0;
-                const esNuevo = !r.min && r.min !== 0 && r.rentabilidad === 0;
-                return (
-                  <div key={i} style={{
-                    background: tieneError ? "#fdf6f6" : "#f8f9fa",
-                    border: `1.5px solid ${tieneError ? "#e74c3c" : hayAdvertencias ? "#f0b429" : `${B}30`}`,
-                    borderRadius:10, padding:12, marginBottom:10,
-                    transition:"border-color 0.2s"
-                  }}>
-                    {/* Cabecera */}
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: errsI.length > 0 ? 8 : 10 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={{
-                          display:"inline-block", width:20, height:20, borderRadius:"50%",
-                          background: tieneError ? "#e74c3c" : "#27ae60",
-                          color:"white", fontSize:11, fontWeight:700,
-                          textAlign:"center", lineHeight:"20px", flexShrink:0
-                        }}>{tieneError ? "!" : "✓"}</span>
-                        <span style={{ fontSize:12, fontWeight:700, color: tieneError ? "#c0392b" : BDK }}>
-                          Rango {i+1}{r.label && r.label !== "Nuevo rango" ? ` — ${r.label}` : ""}
-                        </span>
-                      </div>
-                      <button onClick={() => eliminarRango(i)} style={{ padding:"3px 10px", fontSize:11, borderRadius:6, border:"1px solid #e74c3c", color:"#c0392b", background:"none", cursor:"pointer", fontWeight:600 }}>✕ Eliminar</button>
+              {/* Lista de rangos ya confirmados */}
+              {rangosGuardados.length === 0 && !rangoEnEdicion && (
+                <p style={{ color:"var(--color-text-secondary)", fontSize:13, textAlign:"center", margin:"16px 0" }}>
+                  No hay rangos configurados. Hacé click en "+ Agregar rango" para empezar.
+                </p>
+              )}
+
+              {rangosGuardados.map((r, i) => (
+                <div key={r._id ?? i} style={{ background:"#f0faf4", border:`1.5px solid #27ae60`, borderRadius:10, padding:"10px 14px", marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                      <span style={{ width:18, height:18, borderRadius:"50%", background:"#27ae60", color:"white", fontSize:10, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>✓</span>
+                      <span style={{ fontSize:13, fontWeight:700, color:BDK }}>{r.label || `Rango ${i+1}`}</span>
                     </div>
-
-                    {/* Errores individuales — aparecen campo a campo */}
-                    {errsI.map((msg, k) => (
-                      <div key={k} style={{ background:"#fde8e8", borderRadius:6, padding:"5px 10px", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
-                        <span style={{ color:"#c0392b", fontSize:13, flexShrink:0 }}>⚠</span>
-                        <span style={{ color:"#c0392b", fontSize:11, fontWeight:500 }}>{msg}</span>
-                      </div>
-                    ))}
-
-                    {/* Campos: Min | Max | Rentabilidad en fila */}
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
-                      <div>
-                        <label style={lS}>Mín (millares)</label>
-                        <input
-                          type="number" step="0.5" min="0.5"
-                          value={r.min > 0 ? r.min : ""}
-                          onChange={e => {
-                            const v = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                            actualizarRango(i, "min", isNaN(v) ? 0 : v);
-                          }}
-                          style={{ ...iS, marginBottom:0, borderColor: errsI.some(m=>m.includes("mínimo")||m.includes("Mínimo")) ? "#e74c3c" : `${B}50` }}
-                          placeholder="ej: 1"
-                        />
-                      </div>
-                      <div>
-                        <label style={lS}>Máx (millares)</label>
-                        <input
-                          type="number" step="0.5" min="0.5"
-                          value={r.max === Infinity ? "" : (r.max || "")}
-                          onChange={e => {
-                            const v = e.target.value === "" ? Infinity : parseFloat(e.target.value);
-                            actualizarRango(i, "max", isNaN(v) ? Infinity : v);
-                          }}
-                          style={{ ...iS, marginBottom:0, borderColor: errsI.some(m=>m.includes("máximo")||m.includes("Máximo")) ? "#e74c3c" : `${B}50` }}
-                          placeholder="vacío = sin límite"
-                        />
-                      </div>
-                      <div>
-                        <label style={lS}>Rentabilidad (%)</label>
-                        <input
-                          type="number" step="0.5" min="65.5"
-                          value={r.rentabilidad > 0 ? r.rentabilidad : ""}
-                          onChange={e => {
-                            const v = parseFloat(e.target.value);
-                            actualizarRango(i, "rentabilidad", isNaN(v) ? 0 : v);
-                          }}
-                          style={{ ...iS, marginBottom:0, borderColor: errsI.some(m=>m.includes("rentabilidad")) ? "#e74c3c" : `${B}50` }}
-                          placeholder="> 65"
-                        />
-                      </div>
+                    <div style={{ display:"flex", gap:16, fontSize:12, color:BD, flexWrap:"wrap" }}>
+                      <span>Mín: <strong>{r.min}</strong></span>
+                      <span>Máx: <strong>{r.max === Infinity ? "sin límite" : r.max}</strong></span>
+                      <span>Rentabilidad: <strong style={{ color:B }}>{r.rentabilidad}%</strong></span>
                     </div>
+                  </div>
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <button onClick={() => editarRangoExistente(i)} style={{ padding:"5px 10px", fontSize:11, borderRadius:6, border:`1px solid ${B}`, color:BD, background:"white", cursor:"pointer", fontWeight:600 }}>✏ Editar</button>
+                    <button onClick={() => eliminarRangoGuardado(i)} style={{ padding:"5px 10px", fontSize:11, borderRadius:6, border:"1px solid #e74c3c", color:"#c0392b", background:"none", cursor:"pointer", fontWeight:600 }}>✕</button>
+                  </div>
+                </div>
+              ))}
 
-                    {/* Etiqueta */}
+              {/* Formulario del rango en edición */}
+              {rangoEnEdicion && (
+                <div style={{ background:"#f8f9fa", border:`2px solid ${B}`, borderRadius:12, padding:14, marginBottom:12 }}>
+                  <p style={{ fontSize:12, fontWeight:700, color:BD, margin:"0 0 12px", letterSpacing:0.5 }}>
+                    {rangosGuardados.find(r => r._id === rangoEnEdicion._id) !== undefined
+                      ? "✏ Editando rango"
+                      : `➕ Nuevo rango ${rangosGuardados.length + 1}`}
+                  </p>
+
+                  {/* Errores de validación — solo al intentar confirmar */}
+                  {hayErroresRangos && (
+                    <div style={{ background:"#fde8e8", border:"1px solid #e74c3c", borderRadius:8, padding:"8px 12px", marginBottom:10 }}>
+                      {(rangoErrors[0] || []).map((msg, k) => (
+                        <div key={k} style={{ display:"flex", gap:6, alignItems:"flex-start", marginTop: k > 0 ? 4 : 0 }}>
+                          <span style={{ color:"#c0392b", flexShrink:0 }}>⚠</span>
+                          <span style={{ color:"#c0392b", fontSize:12, fontWeight:500 }}>{msg}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Campos */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
                     <div>
-                      <label style={lS}>Etiqueta</label>
+                      <label style={lS}>Mín (millares)</label>
                       <input
-                        type="text"
-                        value={r.label === "Nuevo rango" && !tieneError ? "" : r.label}
-                        onChange={e => actualizarRango(i, "label", e.target.value || "Nuevo rango")}
+                        type="number" step="0.5" min="0.5"
+                        value={rangoEnEdicion.min > 0 ? rangoEnEdicion.min : ""}
+                        onChange={e => {
+                          const v = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                          editarCampo("min", isNaN(v) ? 0 : v);
+                        }}
                         style={{ ...iS, marginBottom:0 }}
-                        placeholder="ej: 1 a 2 mil"
+                        placeholder="ej: 1"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label style={lS}>Máx (millares)</label>
+                      <input
+                        type="number" step="0.5" min="0.5"
+                        value={rangoEnEdicion.max === Infinity ? "" : (rangoEnEdicion.max || "")}
+                        onChange={e => {
+                          const v = e.target.value === "" ? Infinity : parseFloat(e.target.value);
+                          editarCampo("max", isNaN(v) ? Infinity : v);
+                        }}
+                        style={{ ...iS, marginBottom:0 }}
+                        placeholder="vacío = sin límite"
+                      />
+                    </div>
+                    <div>
+                      <label style={lS}>Rentabilidad (%)</label>
+                      <input
+                        type="number" step="0.5" min="65.5"
+                        value={rangoEnEdicion.rentabilidad > 0 ? rangoEnEdicion.rentabilidad : ""}
+                        onChange={e => {
+                          const v = parseFloat(e.target.value);
+                          editarCampo("rentabilidad", isNaN(v) ? 0 : v);
+                        }}
+                        style={{ ...iS, marginBottom:0 }}
+                        placeholder="> 65"
                       />
                     </div>
                   </div>
-                );
-              })}
+                  <div style={{ marginBottom:12 }}>
+                    <label style={lS}>Etiqueta</label>
+                    <input
+                      type="text"
+                      value={rangoEnEdicion.label}
+                      onChange={e => editarCampo("label", e.target.value)}
+                      style={{ ...iS, marginBottom:0 }}
+                      placeholder="ej: 1 a 2 mil"
+                    />
+                  </div>
 
-              <button
-                onClick={agregarRango}
-                style={{ ...iS, cursor:"pointer", color:"white", border:"none", background: hayErroresRangos ? "#aaa" : B, marginTop:4, fontWeight:600, opacity: hayErroresRangos ? 0.7 : 1 }}
-                title={hayErroresRangos ? "Completá los errores del rango actual antes de agregar uno nuevo" : "Agregar nuevo rango"}
-              >+ Agregar rango{hayErroresRangos ? " (completá los errores primero)" : ""}</button>
+                  {/* Botones confirmar / cancelar */}
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button
+                      onClick={confirmarRango}
+                      style={{ flex:2, padding:"10px 0", fontSize:13, borderRadius:8, border:"none", background:B, color:"white", cursor:"pointer", fontWeight:700 }}
+                    >✓ Confirmar rango</button>
+                    <button
+                      onClick={cancelarEdicion}
+                      style={{ flex:1, padding:"10px 0", fontSize:13, borderRadius:8, border:`1px solid ${B}50`, background:"none", color:BD, cursor:"pointer" }}
+                    >Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Botón agregar — deshabilitado si ya hay uno en edición */}
+              {!rangoEnEdicion && (
+                <button
+                  onClick={iniciarNuevoRango}
+                  style={{ ...iS, cursor:"pointer", color:"white", border:"none", background:B, marginTop:4, fontWeight:600 }}
+                >+ Agregar rango</button>
+              )}
             </div>
           )}
         </>)}
