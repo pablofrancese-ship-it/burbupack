@@ -111,8 +111,8 @@ function calcular(inp, adm) {
     ? ((desperdicioCm / 100) * (largoNum / 100)) / fajas : 0;
   const costoDesperdicio = costoM2ars * m2Desperdicio;
 
-  const costoCmRep = adm.costoRolloRepegable  > 0 ? ((adm.costoRolloRepegable  * adm.tipoCambio) / (METROS_REP * 100)) * 3 : 0;
-  const costoCmInv = adm.costoRolloInviolable > 0 ? ((adm.costoRolloInviolable * adm.tipoCambio) / (METROS_INV * 100)) * 3 : 0;
+  const costoCmRep = adm.costoRolloRepegable  > 0 ? ((adm.costoRolloRepegable  * adm.tipoCambio) / (METROS_REP * 100)) : 0;
+  const costoCmInv = adm.costoRolloInviolable > 0 ? ((adm.costoRolloInviolable * adm.tipoCambio) / (METROS_INV * 100)) : 0;
   let extras = 0;
   if (cintaRep) extras += costoCmRep * anchoNum;
   if (cintaInv) extras += costoCmInv * anchoNum;
