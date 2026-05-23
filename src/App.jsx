@@ -83,7 +83,7 @@ function calcular(inp, adm) {
   const anchoNum  = parseFloat(ancho)  || 0;
   const largoNum  = parseFloat(largo)  || 0;
   const solapaNum = parseFloat(solapa) || 0;
-  const anchoReqRaw = tipo === "bolsa" ? largoNum * 2 + solapaNum : anchoNum;
+  const anchoReqRaw = tipo === "bolsa" ? largoNum * 2 : anchoNum;
   if (anchoReqRaw <= 0) return null;
   const anchoReq = anchoReqRaw; // sin redondeo a múltiplos de 10
   const fajas = Math.floor(anchoMaquina / anchoReq);
