@@ -69,7 +69,7 @@ const today  = () => new Date().toLocaleDateString("es-AR");
 
 function getRangoIdx(m, rangos) {
   for (let i = 0; i < rangos.length; i++) {
-    if (m >= rangos[i].min && m < rangos[i].max) return i;
+    if (m >= rangos[i].min && m <= rangos[i].max) return i;
   }
   return rangos.length - 1; // último rango
 }
@@ -91,7 +91,7 @@ function calcular(inp, adm) {
   const cantUnidadesInt = Math.round(cantMillares * 1000);
 
   const colorNegBlanc = color && (colorOpcion === "negras" || colorOpcion === "blancas");
-  const capasEfectivas = (cintaRep || cintaInv || colorNegBlanc) ? "triple" : capas;
+  const capasEfectivas = (cintaRep || cintaInv) ? "triple" : capas;
 
   const PESO_M2 = { Standard:0.0777, Microburbuja:0.092, Burbujón:0.092 };
   const factorTipo  = tipo === "lamina" ? 0.5 : 1;
